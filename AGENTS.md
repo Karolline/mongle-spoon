@@ -26,7 +26,21 @@ Backend dependencies are managed with `uv`:
 - Add a dependency: `uv add <package>`
 - Run Python: `uv run python ...`
 
-Frontend, backend run, and test commands will be added here once those parts exist.
+Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
+
+- Install: `npm install`
+- Dev server: `npm run dev` (http://localhost:5173)
+- Test: `npm test`
+- Typecheck + build: `npm run build`
+- Lint: `npm run lint`
+
+Backend run and test commands will be added here once the backend exists.
+
+## Frontend structure
+
+- `src/services/`: the services layer. `index.ts` picks the implementation (currently the in-memory mock); `types.ts` is the interface. Search, meal-time filtering, and sorting live here, not in components.
+- `src/components/*Screen.tsx`: screens. They receive navigation callbacks as props and never import the router, so they can be tested directly.
+- `src/router.tsx`: routes (TanStack Router, client-side only). Route components own navigation.
 
 ## Rules
 
