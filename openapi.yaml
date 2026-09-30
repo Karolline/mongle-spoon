@@ -1,0 +1,293 @@
+openapi: 3.1.0
+info:
+  title: Mongle Spoon API
+  version: 0.1.0
+  summary: Backend for saving and looking up baby food recipes.
+  description: |
+    The contract the frontend services layer (`frontend/src/services/types.ts`,
+    `RecipeService`) expects from the FastAPI backend.
+
+    - There is no authentication. Anyone with the URL can read and write.
+    - JSON field names are camelCase, matching the frontend types.
+    - Timestamps are ISO 8601 strings in UTC (e.g. `2026-09-30T08:15:00.000Z`).
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+# No authentication: every operation is public.
+security: []
+
+tags:
+  - name: recipes
+    description: Baby food recipes (create, read, update, delete, search, filter).
+
+paths:
+  /recipes:
+    get:
+      tags: [recipes]
+      operationId: listRecipes
+      summary: List recipes
+      description: |
+        Returns recipes sorted by `updatedAt`, most recent first.
+        `search` and `mealTime` combine with AND. With neither, all recipes are returned.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          description: |
+            Case-insensitive substring match against the recipe name OR any
+            ingredient name. Leading/trailing whitespace is ignored; an empty
+            or whitespace-only value matches everything.
+          schema:
+            type: string
+          example: 브로콜리
+        - name: mealTime
+          in: query
+          required: false
+          description: Only return recipes whose `mealTimes` contains this value. Omit for all (전체).
+          schema:
+            $ref: "#/components/schemas/MealTime"
+      responses:
+        "200":
+          description: Matching recipes. An empty array when nothing matches.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recipe"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [recipes]
+      operationId: createRecipe
+      summary: Create a recipe
+      description: The server assigns `id`, and sets `createdAt` and `updatedAt` to the same current time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecipeInput"
+      responses:
+        "201":
+          description: The created recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /recipes/{recipeId}:
+    parameters:
+      - name: recipeId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [recipes]
+      operationId: getRecipe
+      summary: Get one recipe
+      description: The frontend maps a 404 to `null`.
+      responses:
+        "200":
+          description: The recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [recipes]
+      operationId: updateRecipe
+      summary: Replace a recipe
+      description: |
+        Full replacement of every editable field. `id` and `createdAt` are
+        kept; `updatedAt` is set to the current time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecipeInput"
+      responses:
+        "200":
+          description: The updated recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [recipes]
+      operationId: deleteRecipe
+      summary: Delete a recipe
+      description: Idempotent. Deleting an id that does not exist also returns 204, matching the mock.
+      responses:
+        "204":
+          description: Deleted (or already absent). No body.
+
+components:
+  schemas:
+    MealTime:
+      type: string
+      enum: [breakfast, lunch_dinner, snack]
+      description: |
+        - `breakfast`: 아침
+        - `lunch_dinner`: 점심·저녁 (one option; the baby eats the same menu for both)
+        - `snack`: 간식
+
+    Ingredient:
+      type: object
+      additionalProperties: false
+      required: [name, amount]
+      properties:
+        name:
+          type: string
+          example: 소고기
+        amount:
+          type: string
+          description: Free text.
+          example: 15g
+
+    RecipeInput:
+      type: object
+      description: |
+        Editable fields, sent on create and update. Only `name` is required;
+        omitted fields default to empty. The frontend trims strings and drops
+        ingredient rows where both name and amount are empty before sending.
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          pattern: \S
+          description: Must contain at least one non-whitespace character.
+          example: 소고기 애호박 미음
+        ingredients:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/Ingredient"
+        instructions:
+          type: string
+          default: ""
+        servings:
+          type: string
+          default: ""
+          description: Free text.
+          example: 3~4회분
+        mealTimes:
+          type: array
+          default: []
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/MealTime"
+        notes:
+          type: string
+          default: ""
+
+    Recipe:
+      type: object
+      description: A stored recipe. Every field is always present in responses.
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - ingredients
+        - instructions
+        - servings
+        - mealTimes
+        - notes
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Opaque, server-assigned identifier.
+        name:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+        instructions:
+          type: string
+        servings:
+          type: string
+        mealTimes:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/MealTime"
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: "1"
+        name: 소고기 애호박 미음
+        ingredients:
+          - { name: 쌀가루, amount: 20g }
+          - { name: 소고기, amount: 15g }
+        instructions: 소고기를 핏물을 뺀 뒤 잘게 다집니다.
+        servings: 3~4회분
+        mealTimes: [breakfast, lunch_dinner]
+        notes: 체에 한 번 걸러주면 훨씬 부드러워요.
+        createdAt: "2026-09-10T08:00:00Z"
+        updatedAt: "2026-09-29T08:00:00Z"
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: Recipe not found
+
+    ValidationError:
+      description: FastAPI's default request validation error body.
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            required: [loc, msg, type]
+            properties:
+              loc:
+                type: array
+                items:
+                  anyOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string
+
+  responses:
+    NotFound:
+      description: No recipe with this id.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ValidationError:
+      description: The request failed validation (e.g. missing or blank `name`, unknown `mealTime`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
