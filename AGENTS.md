@@ -20,11 +20,14 @@ The spec is [`_docs/specs.md`](_docs/specs.md). Read it before starting any task
 
 ## Commands
 
-Backend dependencies are managed with `uv`:
+Backend (run inside `backend/`, dependencies managed with `uv`, Python 3.13+):
 
 - Install: `uv sync`
-- Add a dependency: `uv add <package>`
+- Add a dependency: `uv add <package>` (dev-only: `uv add --dev <package>`)
 - Run Python: `uv run python ...`
+- Dev server: `uv run uvicorn app.main:app --reload` (http://localhost:8000, interactive docs at `/docs`)
+- Test: `uv run pytest`
+- Allowed CORS origins: `CORS_ORIGINS` env var, comma-separated (default `http://localhost:5173`)
 
 Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
@@ -34,13 +37,20 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - Typecheck + build: `npm run build`
 - Lint: `npm run lint`
 
-Backend run and test commands will be added here once the backend exists.
-
 ## Frontend structure
 
 - `src/services/`: the services layer. `index.ts` picks the implementation (currently the in-memory mock); `types.ts` is the interface. Search, meal-time filtering, and sorting live here, not in components.
 - `src/components/*Screen.tsx`: screens. They receive navigation callbacks as props and never import the router, so they can be tested directly.
 - `src/router.tsx`: routes (TanStack Router, client-side only). Route components own navigation.
+
+## Backend structure
+
+- `app/main.py`: `create_app()` wires CORS, the store, and routers. Without a store argument it uses an in-memory store seeded with sample recipes (data resets on restart).
+- `app/models.py`: Pydantic schemas. JSON is camelCase (aliases) to match the frontend types and `openapi.yaml`.
+- `app/store.py`: `RecipeStore`. Search, meal-time filtering, and sorting live here, not in routers.
+- `app/auth.py`: `require_access`, attached to every router. It allows everything, since the spec has no authentication; it is the one place to add access control later.
+- `app/routers/`: HTTP endpoints only. They get the store through the `get_store` dependency.
+- `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 
 ## Rules
 
