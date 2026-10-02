@@ -81,3 +81,61 @@ def test_returned_recipes_are_copies(store: RecipeStore) -> None:
     created = store.create(RecipeInput(name="감자 미음"))
     created.ingredients.append(Ingredient(name="변경", amount=""))
     assert store.get(created.id).ingredients == []
+
+
+def test_update_with_same_meal_times_and_ingredients(store: RecipeStore) -> None:
+    data = RecipeInput(
+        name="감자 미음",
+        ingredients=[Ingredient(name="감자", amount="1개")],
+        meal_times=[MealTime.SNACK, MealTime.BREAKFAST],
+    )
+    created = store.create(data)
+    updated = store.update(created.id, data)
+    assert updated is not None
+    assert updated.meal_times == [MealTime.SNACK, MealTime.BREAKFAST]
+    assert updated.ingredients == data.ingredients
+
+
+def test_ingredient_order_is_kept(store: RecipeStore) -> None:
+    ingredients = [Ingredient(name=n, amount="") for n in ("다", "가", "나")]
+    created = store.create(RecipeInput(name="x", ingredients=ingredients))
+    assert store.get(created.id).ingredients == ingredients
+
+
+def test_search_treats_like_wildcards_literally(store: RecipeStore) -> None:
+    store.create(RecipeInput(name="감자 미음"))
+    store.create(RecipeInput(name="100% 사과즙"))
+    assert names(store.list(search="%")) == ["100% 사과즙"]
+    assert names(store.list(search="_")) == []
+
+
+def test_timestamps_are_timezone_aware(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="x"))
+    fetched = store.get(created.id)
+    assert fetched.created_at.tzinfo is not None
+    assert fetched.created_at == created.created_at
+
+
+def test_delete_removes_child_rows(store: RecipeStore) -> None:
+    created = store.create(
+        RecipeInput(
+            name="x",
+            ingredients=[Ingredient(name="감자", amount="")],
+            meal_times=[MealTime.SNACK],
+        )
+    )
+    store.delete(created.id)
+    assert store.list(search="감자") == []
+    assert store.list(meal_time=MealTime.SNACK) == []
+    assert store.is_empty()
+
+
+def test_data_persists_in_a_database_file(tmp_path) -> None:
+    from app.db import make_engine
+
+    url = f"sqlite:///{tmp_path / 'recipes.db'}"
+    created = RecipeStore(engine=make_engine(url)).create(
+        RecipeInput(name="감자 미음", meal_times=[MealTime.BREAKFAST])
+    )
+    reopened = RecipeStore(engine=make_engine(url))
+    assert reopened.get(created.id) == created

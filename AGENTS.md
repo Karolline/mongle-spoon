@@ -45,9 +45,11 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
 ## Backend structure
 
-- `app/main.py`: `create_app()` wires CORS, the store, and routers. Without a store argument it uses an in-memory store seeded with sample recipes (data resets on restart).
+- `app/main.py`: `create_app()` wires CORS, the store, and routers. Without a store argument it uses a `RecipeStore` on `DATABASE_URL` (default `sqlite:///./mongle_spoon.db`, relative to `backend/`).
+- `app/db.py`: SQLAlchemy tables (`recipes`, `ingredients`, `recipe_meal_times`) and `make_engine()`, which also creates missing tables (no migrations yet). Datetimes are stored as UTC.
 - `app/models.py`: Pydantic schemas. JSON is camelCase (aliases) to match the frontend types and `openapi.yaml`.
-- `app/store.py`: `RecipeStore`. Search, meal-time filtering, and sorting live here, not in routers.
+- `app/store.py`: `RecipeStore`, backed by SQLAlchemy. Search, meal-time filtering, and sorting live here (as portable SQL), not in routers. Tests use an in-memory SQLite engine (`sqlite://`).
+- `app/seed.py`: `uv run python -m app.seed` inserts sample recipes, only into an empty database. Nothing is seeded automatically.
 - `app/auth.py`: `require_access`, attached to every router. It allows everything, since the spec has no authentication; it is the one place to add access control later.
 - `app/routers/`: HTTP endpoints only. They get the store through the `get_store` dependency.
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.

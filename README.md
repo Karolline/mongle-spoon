@@ -6,7 +6,7 @@ Built as the Module 2 homework project for [AI Dev Tools Zoomcamp 2026](https://
 
 ## Status
 
-Frontend and FastAPI backend are connected over HTTP. The backend still uses an in-memory store (data resets on restart); SQLAlchemy persistence is next. See [`_docs/specs.md`](_docs/specs.md).
+Frontend and FastAPI backend are connected over HTTP, and recipes are stored in SQLite through SQLAlchemy. Deployment is next. See [`_docs/specs.md`](_docs/specs.md).
 
 ## Tech stack
 
@@ -60,7 +60,10 @@ Requires Python 3.13+ and [`uv`](https://docs.astral.sh/uv/).
 cd backend
 uv sync
 uv run uvicorn app.main:app --reload   # http://localhost:8000, docs at /docs
+uv run python -m app.seed               # optional: sample recipes, only into an empty DB
 uv run pytest
 ```
+
+Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` (any SQLAlchemy URL) to use another file or database.
 
 Allowed CORS origins come from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).

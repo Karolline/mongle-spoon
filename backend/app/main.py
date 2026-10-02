@@ -4,16 +4,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import recipes
-from app.store import RecipeStore, seed
+from app.store import RecipeStore
 
 DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 
 
 def create_app(store: RecipeStore | None = None) -> FastAPI:
-    """Build the app. Without a store, an in-memory store with sample recipes is used."""
+    """Build the app. Without a store, one backed by DATABASE_URL is used."""
     if store is None:
         store = RecipeStore()
-        seed(store)
 
     app = FastAPI(title="Mongle Spoon API", version="0.1.0")
     app.state.store = store

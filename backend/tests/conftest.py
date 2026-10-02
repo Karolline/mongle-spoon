@@ -1,10 +1,16 @@
-from datetime import UTC, datetime, timedelta
+import os
 
-import pytest
-from fastapi.testclient import TestClient
+# Importing app.main builds the default app; keep it off the real database file.
+os.environ["DATABASE_URL"] = "sqlite://"
 
-from app.main import create_app
-from app.store import RecipeStore, seed
+from datetime import UTC, datetime, timedelta  # noqa: E402
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.db import make_engine  # noqa: E402
+from app.main import create_app  # noqa: E402
+from app.store import RecipeStore, seed  # noqa: E402
 
 START = datetime(2026, 9, 1, 9, 0, tzinfo=UTC)
 
@@ -22,7 +28,7 @@ class FakeClock:
 
 @pytest.fixture
 def store() -> RecipeStore:
-    return RecipeStore(clock=FakeClock())
+    return RecipeStore(engine=make_engine("sqlite://"), clock=FakeClock())
 
 
 @pytest.fixture

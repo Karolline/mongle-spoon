@@ -163,6 +163,8 @@ def test_every_route_goes_through_require_access(store: RecipeStore) -> None:
     assert [r.status_code for r in responses] == [401] * 5
 
 
-def test_default_app_is_seeded() -> None:
-    client = TestClient(create_app())
-    assert len(client.get("/recipes").json()) >= 4
+def test_default_app_uses_database_url(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'app.db'}")
+    created = TestClient(create_app()).post("/recipes", json=FULL_INPUT).json()
+    # A fresh app on the same database sees the recipe.
+    assert TestClient(create_app()).get(f"/recipes/{created['id']}").json() == created

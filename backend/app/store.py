@@ -1,10 +1,13 @@
-"""In-memory recipe store. Search, meal-time filtering, and sorting live here."""
+"""Recipe store backed by SQLAlchemy. Search, meal-time filtering, and sorting live here."""
 
-import threading
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import Engine, exists, func, select
+from sqlalchemy.orm import sessionmaker
+
+from app.db import IngredientRow, MealTimeRow, RecipeRow, make_engine
 from app.models import Ingredient, MealTime, Recipe, RecipeInput
 
 Clock = Callable[[], datetime]
@@ -15,74 +18,105 @@ def utc_now() -> datetime:
 
 
 class RecipeStore:
-    def __init__(self, clock: Clock = utc_now) -> None:
+    def __init__(self, engine: Engine | None = None, clock: Clock = utc_now) -> None:
+        self._engine = engine or make_engine()
+        self._sessions = sessionmaker(self._engine, expire_on_commit=False)
         self._clock = clock
-        self._recipes: dict[str, Recipe] = {}
-        self._lock = threading.Lock()
 
     def list(
         self, search: str = "", meal_time: MealTime | None = None
     ) -> list[Recipe]:
-        query = search.strip().casefold()
-        with self._lock:
-            recipes = list(self._recipes.values())
-        result = [
-            r
-            for r in recipes
-            if _matches_search(r, query)
-            and (meal_time is None or meal_time in r.meal_times)
-        ]
-        result.sort(key=lambda r: r.updated_at, reverse=True)
-        return [r.model_copy(deep=True) for r in result]
+        stmt = select(RecipeRow)
+        query = search.strip().lower()
+        if query:
+            stmt = stmt.where(
+                func.lower(RecipeRow.name).contains(query, autoescape=True)
+                | exists().where(
+                    IngredientRow.recipe_id == RecipeRow.id,
+                    func.lower(IngredientRow.name).contains(query, autoescape=True),
+                )
+            )
+        if meal_time is not None:
+            stmt = stmt.where(
+                exists().where(
+                    MealTimeRow.recipe_id == RecipeRow.id,
+                    MealTimeRow.meal_time == meal_time.value,
+                )
+            )
+        stmt = stmt.order_by(RecipeRow.updated_at.desc(), RecipeRow.id)
+        with self._sessions() as session:
+            return [_to_model(row) for row in session.scalars(stmt)]
 
     def get(self, recipe_id: str) -> Recipe | None:
-        with self._lock:
-            recipe = self._recipes.get(recipe_id)
-        return recipe.model_copy(deep=True) if recipe else None
+        with self._sessions() as session:
+            row = session.get(RecipeRow, recipe_id)
+            return _to_model(row) if row else None
 
     def create(self, data: RecipeInput) -> Recipe:
         now = self._clock()
-        recipe = Recipe(
-            id=str(uuid.uuid4()),
-            created_at=now,
-            updated_at=now,
-            **data.model_dump(),
+        return self.add(
+            Recipe(id=str(uuid.uuid4()), created_at=now, updated_at=now, **data.model_dump())
         )
-        with self._lock:
-            self._recipes[recipe.id] = recipe
-        return recipe.model_copy(deep=True)
 
     def update(self, recipe_id: str, data: RecipeInput) -> Recipe | None:
-        with self._lock:
-            existing = self._recipes.get(recipe_id)
-            if existing is None:
+        with self._sessions.begin() as session:
+            row = session.get(RecipeRow, recipe_id)
+            if row is None:
                 return None
-            updated = Recipe(
-                id=existing.id,
-                created_at=existing.created_at,
-                updated_at=self._clock(),
-                **data.model_dump(),
-            )
-            self._recipes[recipe_id] = updated
-        return updated.model_copy(deep=True)
+            _fill_row(row, data)
+            row.updated_at = self._clock()
+            session.flush()
+            return _to_model(row)
 
     def delete(self, recipe_id: str) -> None:
         """Idempotent: deleting an unknown id is a no-op."""
-        with self._lock:
-            self._recipes.pop(recipe_id, None)
+        with self._sessions.begin() as session:
+            row = session.get(RecipeRow, recipe_id)
+            if row is not None:
+                session.delete(row)
 
-    def add(self, recipe: Recipe) -> None:
+    def add(self, recipe: Recipe) -> Recipe:
         """Insert a recipe as-is, keeping its id and timestamps. Used for seeding."""
-        with self._lock:
-            self._recipes[recipe.id] = recipe.model_copy(deep=True)
+        with self._sessions.begin() as session:
+            row = RecipeRow(
+                id=recipe.id, created_at=recipe.created_at, updated_at=recipe.updated_at
+            )
+            _fill_row(row, recipe)
+            session.add(row)
+            session.flush()
+            return _to_model(row)
+
+    def is_empty(self) -> bool:
+        with self._sessions() as session:
+            return session.scalar(select(func.count()).select_from(RecipeRow)) == 0
 
 
-def _matches_search(recipe: Recipe, query: str) -> bool:
-    if not query:
-        return True
-    if query in recipe.name.casefold():
-        return True
-    return any(query in i.name.casefold() for i in recipe.ingredients)
+def _fill_row(row: RecipeRow, data: RecipeInput | Recipe) -> None:
+    row.name = data.name
+    row.instructions = data.instructions
+    row.servings = data.servings
+    row.notes = data.notes
+    row.ingredients = [
+        IngredientRow(position=i, name=ing.name, amount=ing.amount)
+        for i, ing in enumerate(data.ingredients)
+    ]
+    row.meal_times = [
+        MealTimeRow(position=i, meal_time=mt.value) for i, mt in enumerate(data.meal_times)
+    ]
+
+
+def _to_model(row: RecipeRow) -> Recipe:
+    return Recipe(
+        id=row.id,
+        name=row.name,
+        ingredients=[Ingredient(name=i.name, amount=i.amount) for i in row.ingredients],
+        instructions=row.instructions,
+        servings=row.servings,
+        meal_times=[MealTime(m.meal_time) for m in row.meal_times],
+        notes=row.notes,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
 
 
 def seed(store: RecipeStore, now: datetime | None = None) -> None:
