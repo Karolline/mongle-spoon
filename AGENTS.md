@@ -5,7 +5,7 @@ Instructions for coding agents working in this repository.
 ## Project
 
 Mongle Spoon: a mobile-first web app for saving and looking up baby food recipes.
-The spec is [`_docs/specs.md`](_docs/specs.md). Read it before starting any task. If a request conflicts with the spec, ask instead of guessing.
+The spec is [`product-spec.md`](product-spec.md). Read it before starting any task. If a request conflicts with the spec, ask instead of guessing.
 
 ## Language
 
@@ -26,7 +26,7 @@ Backend (run inside `backend/`, dependencies managed with `uv`, Python 3.13+):
 - Add a dependency: `uv add <package>` (dev-only: `uv add --dev <package>`)
 - Run Python: `uv run python ...`
 - Dev server: `uv run uvicorn app.main:app --reload`, or `make run back` from the repo root (http://localhost:8000, interactive docs at `/docs`)
-- Test: `uv run pytest`
+- Test: `uv run pytest` (unit only: `uv run pytest tests/unit`, integration only: `uv run pytest tests/integration`)
 - Allowed CORS origins: `CORS_ORIGINS` env var, comma-separated (default `http://localhost:5173`)
 
 Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
@@ -52,6 +52,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `app/seed.py`: `uv run python -m app.seed` inserts sample recipes, only into an empty database. Nothing is seeded automatically.
 - `app/auth.py`: `require_access`, attached to every router. It allows everything, since the spec has no authentication; it is the one place to add access control later.
 - `app/routers/`: HTTP endpoints only. They get the store through the `get_store` dependency.
+- `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 
 ## Rules

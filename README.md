@@ -6,7 +6,7 @@ Built as the Module 2 homework project for [AI Dev Tools Zoomcamp 2026](https://
 
 ## Status
 
-Frontend and FastAPI backend are connected over HTTP, and recipes are stored in SQLite through SQLAlchemy. Deployment is next. See [`_docs/specs.md`](_docs/specs.md).
+Frontend and FastAPI backend are connected over HTTP, and recipes are stored in SQLite through SQLAlchemy. Deployment is next. See [`product-spec.md`](product-spec.md).
 
 ## Tech stack
 
@@ -19,10 +19,12 @@ Frontend and FastAPI backend are connected over HTTP, and recipes are stored in 
 ## Repository layout
 
 ```
-_docs/        # Specs and supporting docs
-frontend/     # Frontend app
-backend/      # FastAPI backend and tests
-AGENTS.md     # Instructions for coding agents
+product-spec.md  # Product specification
+openapi.yaml     # API contract between frontend and backend
+AGENTS.md        # Instructions for coding agents
+docs/            # Supporting docs (testing, ...)
+frontend/        # Frontend app
+backend/         # FastAPI backend and tests
 ```
 
 ## Running locally
@@ -61,9 +63,13 @@ cd backend
 uv sync
 uv run uvicorn app.main:app --reload   # http://localhost:8000, docs at /docs
 uv run python -m app.seed               # optional: sample recipes, only into an empty DB
-uv run pytest
+uv run pytest                           # all tests (unit + integration)
 ```
 
 Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` (any SQLAlchemy URL) to use another file or database.
 
 Allowed CORS origins come from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).
+
+## Testing
+
+Backend tests are split into `backend/tests/unit/` (the store on its own) and `backend/tests/integration/` (HTTP endpoints and end-to-end user workflows against a real SQLite file). Run one group with `uv run pytest tests/unit` or `uv run pytest tests/integration`. See [`docs/testing.md`](docs/testing.md) for what each suite covers.
