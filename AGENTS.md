@@ -39,7 +39,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
 ## Frontend structure
 
-- `src/services/`: the services layer. `index.ts` picks the implementation (currently the in-memory mock); `types.ts` is the interface. Search, meal-time filtering, and sorting live here, not in components.
+- `src/services/`: the services layer. `types.ts` is the interface; `httpRecipeService.ts` calls the backend and `mockRecipeService.ts` is the in-memory mock. `index.ts` picks one: HTTP to `VITE_API_BASE_URL` (default `http://localhost:8000`), or the mock when `VITE_USE_MOCK_API=true` (always set for Vitest in `vite.config.ts`, so component tests never hit a server). Components never do search, meal-time filtering, or sorting themselves.
 - `src/components/*Screen.tsx`: screens. They receive navigation callbacks as props and never import the router, so they can be tested directly.
 - `src/router.tsx`: routes (TanStack Router, client-side only). Route components own navigation.
 

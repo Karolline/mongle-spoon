@@ -1,10 +1,18 @@
+import { createHttpRecipeService } from "./httpRecipeService";
 import { mockRecipeService } from "./mockRecipeService";
 import type { RecipeService } from "./types";
 
 /**
  * Single entry point for every backend call.
- * Swap this binding for an HTTP implementation when the FastAPI backend lands.
+ * Uses the FastAPI backend at VITE_API_BASE_URL (default http://localhost:8000),
+ * or the in-memory mock when VITE_USE_MOCK_API is "true" (always set in tests).
  */
-export const recipeService: RecipeService = mockRecipeService;
+const useMock = import.meta.env.VITE_USE_MOCK_API === "true";
+const apiBaseUrl: string =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+export const recipeService: RecipeService = useMock
+  ? mockRecipeService
+  : createHttpRecipeService(apiBaseUrl);
 
 export * from "./types";

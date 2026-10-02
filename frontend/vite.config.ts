@@ -13,5 +13,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Screen tests run against the in-memory mock, never a live backend.
+    env: { VITE_USE_MOCK_API: "true" },
   },
 });
