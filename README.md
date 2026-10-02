@@ -61,10 +61,12 @@ Requires Python 3.13+ and [`uv`](https://docs.astral.sh/uv/).
 ```
 cd backend
 uv sync
-uv run uvicorn app.main:app --reload   # http://localhost:8000, docs at /docs
+uv run python -m app.devserver         # http://localhost:8000, docs at /docs
 uv run python -m app.seed               # optional: sample recipes, only into an empty DB
 uv run pytest                           # all tests (unit + integration)
 ```
+
+`app.devserver` runs uvicorn with `--reload`, but first refuses to start if port 8000 is already taken. On Windows uvicorn would otherwise share the port with a leftover server (e.g. one whose terminal was closed without `Ctrl+C`), and requests could silently go to that old server.
 
 Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` (any SQLAlchemy URL) to use another file or database.
 
@@ -75,7 +77,7 @@ Allowed CORS origins come from `CORS_ORIGINS` (comma-separated, default `http://
 Anyone with the URL can view recipes, but adding, editing, and deleting need a password. The backend reads it from `ADMIN_PASSWORD`:
 
 - `make run back` sets it to `dev` unless you pass another one (`make run back ADMIN_PASSWORD=...`).
-- Running uvicorn directly, set it yourself, e.g. `ADMIN_PASSWORD=dev uv run uvicorn app.main:app --reload`.
+- Running the server directly, set it yourself, e.g. `ADMIN_PASSWORD=dev uv run python -m app.devserver`.
 - If it is unset, the app still runs but every write returns 503. A deployment that forgets it is read-only, not open.
 - Use printable ASCII only (it is sent in an HTTP header). Always deploy behind HTTPS so it is not sent in plain text.
 

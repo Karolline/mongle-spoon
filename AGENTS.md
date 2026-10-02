@@ -25,7 +25,7 @@ Backend (run inside `backend/`, dependencies managed with `uv`, Python 3.13+):
 - Install: `uv sync`
 - Add a dependency: `uv add <package>` (dev-only: `uv add --dev <package>`)
 - Run Python: `uv run python ...`
-- Dev server: `uv run uvicorn app.main:app --reload`, or `make run back` from the repo root (http://localhost:8000, interactive docs at `/docs`)
+- Dev server: `uv run python -m app.devserver`, or `make run back` from the repo root (http://localhost:8000, interactive docs at `/docs`). It runs uvicorn with `--reload` but exits if port 8000 is already taken: on Windows uvicorn would otherwise share the port with a leftover server and requests could silently hit old code. Don't start uvicorn directly for local dev.
 - Test: `uv run pytest` (unit only: `uv run pytest tests/unit`, integration only: `uv run pytest tests/integration`)
 - Allowed CORS origins: `CORS_ORIGINS` env var, comma-separated (default `http://localhost:5173`)
 - Write password: `ADMIN_PASSWORD` env var. Unset means writes return 503. `make run back` defaults it to `dev`.

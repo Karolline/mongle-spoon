@@ -13,7 +13,7 @@ export ADMIN_PASSWORD
 
 run:
 ifeq ($(TARGET),back)
-	cd backend && uv run uvicorn app.main:app --reload
+	cd backend && uv run python -m app.devserver
 else ifeq ($(TARGET),front)
 	cd frontend && npm run dev
 else
