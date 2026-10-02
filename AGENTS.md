@@ -28,6 +28,7 @@ Backend (run inside `backend/`, dependencies managed with `uv`, Python 3.13+):
 - Dev server: `uv run uvicorn app.main:app --reload`, or `make run back` from the repo root (http://localhost:8000, interactive docs at `/docs`)
 - Test: `uv run pytest` (unit only: `uv run pytest tests/unit`, integration only: `uv run pytest tests/integration`)
 - Allowed CORS origins: `CORS_ORIGINS` env var, comma-separated (default `http://localhost:5173`)
+- Write password: `ADMIN_PASSWORD` env var. Unset means writes return 503. `make run back` defaults it to `dev`.
 
 Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
@@ -39,7 +40,8 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
 ## Frontend structure
 
-- `src/services/`: the services layer. `types.ts` is the interface; `httpRecipeService.ts` calls the backend and `mockRecipeService.ts` is the in-memory mock. `index.ts` picks one: HTTP to `VITE_API_BASE_URL` (default `http://localhost:8000`), or the mock when `VITE_USE_MOCK_API=true` (always set for Vitest in `vite.config.ts`, so component tests never hit a server). Components never do search, meal-time filtering, or sorting themselves.
+- `src/services/`: the services layer. `types.ts` is the interface (including `isUnlocked`/`unlock`/`lock` for the write password); `httpRecipeService.ts` calls the backend and `mockRecipeService.ts` is the in-memory mock. `index.ts` picks one: HTTP to `VITE_API_BASE_URL` (default `http://localhost:8000`), or the mock when `VITE_USE_MOCK_API=true` (always set for Vitest in `vite.config.ts`, so component tests never hit a server). Components never do search, meal-time filtering, or sorting themselves.
+- Write password: the HTTP service keeps it in localStorage and sends it as `Authorization: Bearer` on writes only; the mock accepts `MOCK_PASSWORD` (`1234`). Screens gate write actions with `useUnlockGate()` (`src/components/useUnlockGate.tsx`), which shows `PasswordDialog`.
 - `src/components/*Screen.tsx`: screens. They receive navigation callbacks as props and never import the router, so they can be tested directly.
 - `src/router.tsx`: routes (TanStack Router, client-side only). Route components own navigation.
 
@@ -50,7 +52,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `app/models.py`: Pydantic schemas. JSON is camelCase (aliases) to match the frontend types and `openapi.yaml`.
 - `app/store.py`: `RecipeStore`, backed by SQLAlchemy. Search, meal-time filtering, and sorting live here (as portable SQL), not in routers. Tests use an in-memory SQLite engine (`sqlite://`).
 - `app/seed.py`: `uv run python -m app.seed` inserts sample recipes, only into an empty database. Nothing is seeded automatically.
-- `app/auth.py`: `require_access`, attached to every router. It allows everything, since the spec has no authentication; it is the one place to add access control later.
+- `app/auth.py`: access control. `require_access` is attached to every router and allows everything (reads are public). `require_write` is attached to every write endpoint and checks `Authorization: Bearer <ADMIN_PASSWORD>` (constant-time compare); 401 when wrong, 503 when `ADMIN_PASSWORD` is unset. `POST /auth/verify` (`app/routers/auth.py`) lets the frontend check a password.
 - `app/routers/`: HTTP endpoints only. They get the store through the `get_store` dependency.
 - `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.

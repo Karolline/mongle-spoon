@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { mockRecipeService, resetMockRecipes } from "./mockRecipeService";
+import {
+  MOCK_PASSWORD,
+  mockRecipeService,
+  resetMockRecipes,
+} from "./mockRecipeService";
+import { isUnauthorized } from "./errors";
 import type { RecipeInput } from "./types";
 
 const blank: RecipeInput = {
@@ -12,8 +17,9 @@ const blank: RecipeInput = {
 };
 
 describe("mockRecipeService", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetMockRecipes();
+    await mockRecipeService.unlock(MOCK_PASSWORD);
   });
 
   it("is seeded with recipes covering all three meal times", async () => {
@@ -94,5 +100,22 @@ describe("mockRecipeService", () => {
 
   it("returns null for an unknown id", async () => {
     expect(await mockRecipeService.getRecipe("nope")).toBeNull();
+  });
+
+  it("rejects writes until unlocked with the right password", async () => {
+    mockRecipeService.lock();
+    expect(mockRecipeService.isUnlocked()).toBe(false);
+    const write = mockRecipeService.createRecipe({ ...blank, name: "x" });
+    await expect(write).rejects.toSatisfy(isUnauthorized);
+    await expect(mockRecipeService.deleteRecipe("seed-1")).rejects.toSatisfy(
+      isUnauthorized,
+    );
+
+    expect(await mockRecipeService.unlock("wrong")).toBe(false);
+    expect(mockRecipeService.isUnlocked()).toBe(false);
+    expect(await mockRecipeService.unlock(MOCK_PASSWORD)).toBe(true);
+    expect(mockRecipeService.isUnlocked()).toBe(true);
+    await mockRecipeService.deleteRecipe("seed-1");
+    expect(await mockRecipeService.getRecipe("seed-1")).toBeNull();
   });
 });

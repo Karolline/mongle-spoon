@@ -32,10 +32,22 @@ export interface ListRecipesParams {
   mealTime?: MealTime | null;
 }
 
+/**
+ * Reading is public. Creating, updating and deleting need the admin password:
+ * call `unlock` first. Writes rejected for a wrong password throw an ApiError
+ * with status 401 (see `isUnauthorized`) and forget the stored password.
+ */
 export interface RecipeService {
   listRecipes(params?: ListRecipesParams): Promise<Recipe[]>;
   getRecipe(id: string): Promise<Recipe | null>;
   createRecipe(input: RecipeInput): Promise<Recipe>;
   updateRecipe(id: string, input: RecipeInput): Promise<Recipe>;
   deleteRecipe(id: string): Promise<void>;
+
+  /** True when a password is remembered, so writes will send it. */
+  isUnlocked(): boolean;
+  /** Checks the password with the server and remembers it if correct. */
+  unlock(password: string): Promise<boolean>;
+  /** Forgets the remembered password. */
+  lock(): void;
 }

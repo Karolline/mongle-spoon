@@ -7,19 +7,24 @@ info:
     The contract the frontend services layer (`frontend/src/services/types.ts`,
     `RecipeService`) expects from the FastAPI backend.
 
-    - There is no authentication. Anyone with the URL can read and write.
+    - Reading is public. Creating, updating and deleting need the admin
+      password (the server's `ADMIN_PASSWORD`), sent as
+      `Authorization: Bearer <password>`. When `ADMIN_PASSWORD` is unset,
+      every write returns 503.
     - JSON field names are camelCase, matching the frontend types.
     - Timestamps are ISO 8601 strings in UTC (e.g. `2026-09-30T08:15:00.000Z`).
 servers:
   - url: http://localhost:8000
     description: Local development
 
-# No authentication: every operation is public.
+# Reads are public; write operations declare `adminPassword` themselves.
 security: []
 
 tags:
   - name: recipes
     description: Baby food recipes (create, read, update, delete, search, filter).
+  - name: auth
+    description: Checking the admin password that protects writes.
 
 paths:
   /recipes:
@@ -63,6 +68,8 @@ paths:
       operationId: createRecipe
       summary: Create a recipe
       description: The server assigns `id`, and sets `createdAt` and `updatedAt` to the same current time.
+      security:
+        - adminPassword: []
       requestBody:
         required: true
         content:
@@ -76,6 +83,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -107,6 +118,8 @@ paths:
       description: |
         Full replacement of every editable field. `id` and `createdAt` are
         kept; `updatedAt` is set to the current time.
+      security:
+        - adminPassword: []
       requestBody:
         required: true
         content:
@@ -120,6 +133,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
@@ -129,11 +146,41 @@ paths:
       operationId: deleteRecipe
       summary: Delete a recipe
       description: Idempotent. Deleting an id that does not exist also returns 204, matching the mock.
+      security:
+        - adminPassword: []
       responses:
         "204":
           description: Deleted (or already absent). No body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+
+  /auth/verify:
+    post:
+      tags: [auth]
+      operationId: verifyPassword
+      summary: Check the admin password
+      description: |
+        Lets the frontend check a password before remembering it. Changes
+        nothing on the server.
+      security:
+        - adminPassword: []
+      responses:
+        "204":
+          description: The password is correct. No body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
 
 components:
+  securitySchemes:
+    adminPassword:
+      type: http
+      scheme: bearer
+      description: The admin password (ADMIN_PASSWORD on the server), sent as the bearer token.
+
   schemas:
     MealTime:
       type: string
@@ -279,6 +326,23 @@ components:
                 type: string
 
   responses:
+    Unauthorized:
+      description: Wrong or missing password.
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    WritesDisabled:
+      description: Writes are disabled because ADMIN_PASSWORD is not set on the server.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
     NotFound:
       description: No recipe with this id.
       content:

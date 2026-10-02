@@ -4,15 +4,20 @@ import type {
   RecipeInput,
   RecipeService,
 } from "./types";
+import { ApiError } from "./errors";
 
 /**
  * In-memory mock implementation of the recipe service.
  * A real FastAPI-backed implementation can replace this later without
  * touching any UI component: search + filtering + sorting live here.
+ * Writes need `unlock(MOCK_PASSWORD)` first, like the real backend.
  */
+
+export const MOCK_PASSWORD = "1234";
 
 let store: Recipe[] = [];
 let counter = 0;
+let unlocked = false;
 
 function iso(daysAgo: number): string {
   return new Date(Date.now() - daysAgo * 86_400_000).toISOString();
@@ -102,9 +107,15 @@ function seed(): Recipe[] {
   return base.map((r) => ({ ...r, id: `seed-${++counter}` }));
 }
 
+/** Restores the seed recipes and locks writes again. */
 export function resetMockRecipes(): void {
   counter = 0;
   store = seed();
+  unlocked = false;
+}
+
+function requireUnlocked(): void {
+  if (!unlocked) throw new ApiError(401, "Wrong or missing password");
 }
 
 resetMockRecipes();
@@ -148,6 +159,7 @@ export const mockRecipeService: RecipeService = {
   },
 
   async createRecipe(input: RecipeInput) {
+    requireUnlocked();
     const now = new Date().toISOString();
     const recipe: Recipe = {
       ...input,
@@ -162,6 +174,7 @@ export const mockRecipeService: RecipeService = {
   },
 
   async updateRecipe(id: string, input: RecipeInput) {
+    requireUnlocked();
     const index = store.findIndex((r) => r.id === id);
     const existing = store[index];
     if (!existing) throw new Error(`Recipe not found: ${id}`);
@@ -177,7 +190,22 @@ export const mockRecipeService: RecipeService = {
   },
 
   async deleteRecipe(id: string) {
+    requireUnlocked();
     store = store.filter((r) => r.id !== id);
     return delay(undefined);
+  },
+
+  isUnlocked() {
+    return unlocked;
+  },
+
+  async unlock(password: string) {
+    const correct = password === MOCK_PASSWORD;
+    if (correct) unlocked = true;
+    return delay(correct);
+  },
+
+  lock() {
+    unlocked = false;
   },
 };

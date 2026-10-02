@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from tests.conftest import AUTH
 
 
 @pytest.fixture
@@ -22,7 +23,7 @@ def names(res) -> list[str]:
 
 
 def test_add_find_edit_delete_recipe(database_url: str) -> None:
-    client = TestClient(create_app())
+    client = TestClient(create_app(), headers=AUTH)
 
     # Add two recipes; the newest one is listed first.
     potato = client.post(
@@ -69,6 +70,7 @@ def test_add_find_edit_delete_recipe(database_url: str) -> None:
 
 
 def test_recipes_survive_app_restart(database_url: str) -> None:
-    created = TestClient(create_app()).post("/recipes", json={"name": "단호박 퓨레"}).json()
+    writer = TestClient(create_app(), headers=AUTH)
+    created = writer.post("/recipes", json={"name": "단호박 퓨레"}).json()
     # A fresh app on the same database sees the recipe.
     assert TestClient(create_app()).get(f"/recipes/{created['id']}").json() == created

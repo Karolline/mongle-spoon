@@ -70,6 +70,17 @@ Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` (
 
 Allowed CORS origins come from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).
 
+### Write password
+
+Anyone with the URL can view recipes, but adding, editing, and deleting need a password. The backend reads it from `ADMIN_PASSWORD`:
+
+- `make run back` sets it to `dev` unless you pass another one (`make run back ADMIN_PASSWORD=...`).
+- Running uvicorn directly, set it yourself, e.g. `ADMIN_PASSWORD=dev uv run uvicorn app.main:app --reload`.
+- If it is unset, the app still runs but every write returns 503. A deployment that forgets it is read-only, not open.
+- Use printable ASCII only (it is sent in an HTTP header). Always deploy behind HTTPS so it is not sent in plain text.
+
+In the app, the first add, edit, or delete asks for the password and the browser remembers it. [잠금] on the list screen forgets it. With `VITE_USE_MOCK_API=true` the password is `1234`.
+
 ## Testing
 
 Backend tests are split into `backend/tests/unit/` (the store on its own) and `backend/tests/integration/` (HTTP endpoints and end-to-end user workflows against a real SQLite file). Run one group with `uv run pytest tests/unit` or `uv run pytest tests/integration`. See [`docs/testing.md`](docs/testing.md) for what each suite covers.

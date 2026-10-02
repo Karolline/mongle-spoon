@@ -2,6 +2,7 @@ import os
 
 # Importing app.main builds the default app; keep it off the real database file.
 os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["ADMIN_PASSWORD"] = "test-password"
 
 from datetime import UTC, datetime, timedelta  # noqa: E402
 
@@ -13,6 +14,7 @@ from app.main import create_app  # noqa: E402
 from app.store import RecipeStore, seed  # noqa: E402
 
 START = datetime(2026, 9, 1, 9, 0, tzinfo=UTC)
+AUTH = {"Authorization": "Bearer test-password"}
 
 
 class FakeClock:
@@ -39,9 +41,17 @@ def seeded_store(store: RecipeStore) -> RecipeStore:
 
 @pytest.fixture
 def client(seeded_store: RecipeStore) -> TestClient:
-    return TestClient(create_app(store=seeded_store))
+    """Sends the admin password with every request."""
+    return TestClient(create_app(store=seeded_store), headers=AUTH)
 
 
 @pytest.fixture
 def empty_client(store: RecipeStore) -> TestClient:
-    return TestClient(create_app(store=store))
+    """Sends the admin password with every request."""
+    return TestClient(create_app(store=store), headers=AUTH)
+
+
+@pytest.fixture
+def anon_client(seeded_store: RecipeStore) -> TestClient:
+    """Sends no password, like a family member who only views recipes."""
+    return TestClient(create_app(store=seeded_store))

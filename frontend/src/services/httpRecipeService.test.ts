@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, createHttpRecipeService } from "./httpRecipeService";
+import {
+  ApiError,
+  PASSWORD_STORAGE_KEY,
+  createHttpRecipeService,
+  type PasswordStorage,
+} from "./httpRecipeService";
 import type { Recipe, RecipeInput } from "./types";
 
 const recipe: Recipe = {
@@ -30,14 +35,25 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function setup(response: Response) {
+function memoryStorage(initial: Record<string, string> = {}): PasswordStorage {
+  const data = new Map(Object.entries(initial));
+  return {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => void data.set(key, value),
+    removeItem: (key) => void data.delete(key),
+  };
+}
+
+function setup(response: Response, storage = memoryStorage()) {
   const fetchFn = vi.fn<typeof fetch>().mockResolvedValue(response);
-  const service = createHttpRecipeService("http://api.test/", fetchFn);
+  const service = createHttpRecipeService("http://api.test/", fetchFn, storage);
   const call = (i = 0) => {
     const [url, init] = fetchFn.mock.calls[i]!;
     return { url: String(url), init: init ?? {} };
   };
-  return { service, fetchFn, call };
+  const header = (i = 0) =>
+    (call(i).init.headers as Record<string, string>)["Authorization"];
+  return { service, fetchFn, call, header, storage };
 }
 
 describe("httpRecipeService", () => {
@@ -129,7 +145,112 @@ describe("httpRecipeService", () => {
 
   it("propagates network failures", async () => {
     const fetchFn = vi.fn<typeof fetch>().mockRejectedValue(new TypeError("offline"));
-    const service = createHttpRecipeService("http://api.test", fetchFn);
+    const service = createHttpRecipeService("http://api.test", fetchFn, null);
     await expect(service.listRecipes()).rejects.toThrow("offline");
+  });
+});
+
+describe("httpRecipeService password", () => {
+  const remembered = () => memoryStorage({ [PASSWORD_STORAGE_KEY]: "secret" });
+
+  it("starts unlocked when a password is remembered", () => {
+    expect(setup(jsonResponse([])).service.isUnlocked()).toBe(false);
+    expect(setup(jsonResponse([]), remembered()).service.isUnlocked()).toBe(true);
+  });
+
+  it("sends the password on writes only", async () => {
+    const { service, fetchFn, header } = setup(jsonResponse([]), remembered());
+    await service.listRecipes();
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.getRecipe("r1");
+    fetchFn.mockResolvedValue(jsonResponse(recipe, 201));
+    await service.createRecipe(input);
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.updateRecipe("r1", input);
+    fetchFn.mockResolvedValue(new Response(null, { status: 204 }));
+    await service.deleteRecipe("r1");
+    expect([0, 1, 2, 3, 4].map((i) => header(i))).toEqual([
+      undefined,
+      undefined,
+      "Bearer secret",
+      "Bearer secret",
+      "Bearer secret",
+    ]);
+  });
+
+  it("unlocks and remembers a correct password", async () => {
+    const { service, call, header, storage } = setup(
+      new Response(null, { status: 204 }),
+    );
+    expect(await service.unlock("secret")).toBe(true);
+    expect(call().url).toBe("http://api.test/auth/verify");
+    expect(call().init.method).toBe("POST");
+    expect(header()).toBe("Bearer secret");
+    expect(service.isUnlocked()).toBe(true);
+    expect(storage.getItem(PASSWORD_STORAGE_KEY)).toBe("secret");
+  });
+
+  it("does not remember a wrong password", async () => {
+    const { service, storage } = setup(
+      jsonResponse({ detail: "Wrong or missing password" }, 401),
+    );
+    expect(await service.unlock("nope")).toBe(false);
+    expect(service.isUnlocked()).toBe(false);
+    expect(storage.getItem(PASSWORD_STORAGE_KEY)).toBeNull();
+  });
+
+  it("rejects passwords that cannot be sent in a header without calling the server", async () => {
+    const { service, fetchFn } = setup(new Response(null, { status: 204 }));
+    expect(await service.unlock("비밀번호")).toBe(false);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it("throws when the server has writes disabled", async () => {
+    const { service } = setup(
+      jsonResponse({ detail: "Writes are disabled" }, 503),
+    );
+    const error = await service.unlock("secret").catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(503);
+    expect(service.isUnlocked()).toBe(false);
+  });
+
+  it("forgets the password when a write is rejected", async () => {
+    const { service, storage } = setup(
+      jsonResponse({ detail: "Wrong or missing password" }, 401),
+      remembered(),
+    );
+    const error = await service.deleteRecipe("r1").catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(401);
+    expect(service.isUnlocked()).toBe(false);
+    expect(storage.getItem(PASSWORD_STORAGE_KEY)).toBeNull();
+  });
+
+  it("locks on request", () => {
+    const { service, storage } = setup(jsonResponse([]), remembered());
+    service.lock();
+    expect(service.isUnlocked()).toBe(false);
+    expect(storage.getItem(PASSWORD_STORAGE_KEY)).toBeNull();
+  });
+
+  it("keeps working when storage throws", async () => {
+    const broken: PasswordStorage = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+      removeItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    const { service } = setup(new Response(null, { status: 204 }), broken);
+    expect(service.isUnlocked()).toBe(false);
+    expect(await service.unlock("secret")).toBe(true);
+    expect(service.isUnlocked()).toBe(true);
+    service.lock();
+    expect(service.isUnlocked()).toBe(false);
   });
 });

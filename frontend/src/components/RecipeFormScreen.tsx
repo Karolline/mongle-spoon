@@ -3,11 +3,13 @@ import { ChevronLeft, X } from "lucide-react";
 import {
   MEAL_TIMES,
   MEAL_TIME_LABELS,
+  isUnauthorized,
   recipeService,
   type Ingredient,
   type MealTime,
 } from "@/services";
 import { AppBackground } from "./AppBackground";
+import { useUnlockGate } from "./useUnlockGate";
 
 interface Props {
   recipeId?: string;
@@ -30,6 +32,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { requireUnlock, dialog } = useUnlockGate();
 
   useEffect(() => {
     if (!recipeId) return;
@@ -65,13 +68,17 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
       setError("메뉴 이름을 입력해 주세요.");
       return;
     }
     setError(null);
+    requireUnlock(() => void save());
+  }
+
+  async function save() {
     setSaving(true);
     const payload = {
       name: name.trim(),
@@ -88,6 +95,10 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
         ? await recipeService.updateRecipe(recipeId, payload)
         : await recipeService.createRecipe(payload);
       onSaved(saved.id);
+    } catch (error) {
+      if (!isUnauthorized(error)) throw error;
+      // The remembered password is no longer valid: ask for it again.
+      requireUnlock(() => void save());
     } finally {
       setSaving(false);
     }
@@ -244,6 +255,8 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
           </button>
         </div>
       </form>
+
+      {dialog}
     </AppBackground>
   );
 }

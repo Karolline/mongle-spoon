@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.auth import require_access
 from app.main import create_app
 from app.store import RecipeStore
+from tests.conftest import AUTH
 
 FULL_INPUT = {
     "name": "감자 미음",
@@ -150,16 +151,17 @@ def test_every_route_goes_through_require_access(store: RecipeStore) -> None:
     from fastapi import HTTPException
 
     def deny() -> None:
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=418)
 
     app = create_app(store=store)
     app.dependency_overrides[require_access] = deny
-    client = TestClient(app)
+    client = TestClient(app, headers=AUTH)
     responses = [
         client.get("/recipes"),
         client.post("/recipes", json={"name": "x"}),
         client.get("/recipes/x"),
         client.put("/recipes/x", json={"name": "x"}),
         client.delete("/recipes/x"),
+        client.post("/auth/verify"),
     ]
-    assert [r.status_code for r in responses] == [401] * 5
+    assert [r.status_code for r in responses] == [418] * 6

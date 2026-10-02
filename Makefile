@@ -5,6 +5,12 @@
 
 TARGET := $(word 2,$(MAKECMDGOALS))
 
+# Password for adding, editing and deleting recipes. "dev" is a local-only
+# default; override with `make run back ADMIN_PASSWORD=...`. Deployments must
+# set their own (see README).
+ADMIN_PASSWORD ?= dev
+export ADMIN_PASSWORD
+
 run:
 ifeq ($(TARGET),back)
 	cd backend && uv run uvicorn app.main:app --reload

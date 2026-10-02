@@ -16,3 +16,4 @@ export const recipeService: RecipeService = useMock
   : createHttpRecipeService(apiBaseUrl);
 
 export * from "./types";
+export { ApiError, isUnauthorized } from "./errors";

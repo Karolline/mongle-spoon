@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
-from app.auth import require_access
+from app.auth import WRITE_ERRORS, require_access, require_write
 from app.models import MealTime, Recipe, RecipeInput
 from app.store import RecipeStore
 
@@ -20,6 +20,7 @@ def get_store(request: Request) -> RecipeStore:
 StoreDep = Annotated[RecipeStore, Depends(get_store)]
 
 NOT_FOUND = {404: {"description": "No recipe with this id."}}
+WRITE = [Depends(require_write)]
 
 
 def _not_found() -> HTTPException:
@@ -39,6 +40,8 @@ def list_recipes(
     "",
     response_model=Recipe,
     status_code=status.HTTP_201_CREATED,
+    responses=WRITE_ERRORS,
+    dependencies=WRITE,
     operation_id="createRecipe",
 )
 def create_recipe(data: RecipeInput, store: StoreDep) -> Recipe:
@@ -58,7 +61,8 @@ def get_recipe(recipe_id: str, store: StoreDep) -> Recipe:
 @router.put(
     "/{recipe_id}",
     response_model=Recipe,
-    responses=NOT_FOUND,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
     operation_id="updateRecipe",
 )
 def update_recipe(recipe_id: str, data: RecipeInput, store: StoreDep) -> Recipe:
@@ -72,6 +76,8 @@ def update_recipe(recipe_id: str, data: RecipeInput, store: StoreDep) -> Recipe:
     "/{recipe_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
+    responses=WRITE_ERRORS,
+    dependencies=WRITE,
     operation_id="deleteRecipe",
 )
 def delete_recipe(recipe_id: str, store: StoreDep) -> Response:

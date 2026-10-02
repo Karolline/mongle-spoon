@@ -8,9 +8,12 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 ## Users and access
 
-- One person (me) manages the recipes. There is no login.
+- One person (me) manages the recipes. There are no user accounts.
 - Anyone with the URL can view the app. The URL is shared only with family.
-- Anyone with the URL can also add, edit, and delete recipes. Read-only access for others will be reconsidered at deployment.
+- Adding, editing, and deleting recipes needs a single shared password, set on the server.
+  - The password is asked for the first time a write action is used ([+ 추가], [수정], [삭제], or saving the form), then remembered in that browser.
+  - A [잠금] button on the list screen forgets the remembered password.
+  - Viewing, searching, and filtering never need the password.
 
 ## Platform and language
 
@@ -47,7 +50,7 @@ Three screens:
 
 - Photos
 - Cooking history, and tracking how long food has been stored in the fridge or freezer (a larger feature, planned separately)
-- Read-only access, login
+- User accounts, per-person permissions
 - Sort options (by name, etc.)
 - Baby food stage, baby's age in months, cooking time, allergens, baby's reaction
 - Deployment (Module 3 and later)

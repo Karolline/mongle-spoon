@@ -8,6 +8,7 @@ import {
   type Recipe,
 } from "@/services";
 import { AppBackground } from "./AppBackground";
+import { useUnlockGate } from "./useUnlockGate";
 import { relativeKo } from "@/lib/format";
 
 interface Props {
@@ -20,6 +21,7 @@ export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
   const [mealTime, setMealTime] = useState<MealTime | null>(null);
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const { unlocked, requireUnlock, lock, dialog } = useUnlockGate();
 
   const load = useCallback(async () => {
     const [filtered, all] = await Promise.all([
@@ -47,9 +49,20 @@ export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
             몽글스푼
           </h1>
         </div>
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-soft">
-          {totalCount}<span className="text-ink-faint">개</span>
-        </span>
+        <div className="flex shrink-0 items-center gap-3">
+          {unlocked ? (
+            <button
+              type="button"
+              onClick={lock}
+              className="rounded-full border border-ink/10 bg-white/60 px-3 py-1 text-[12px] font-medium text-ink-soft"
+            >
+              잠금
+            </button>
+          ) : null}
+          <span className="font-mono text-[11px] tabular-nums text-ink-soft">
+            {totalCount}<span className="text-ink-faint">개</span>
+          </span>
+        </div>
       </header>
 
       <div className="rise rise-1 sticky top-3 z-20 rounded-3xl border border-white/60 bg-white/55 p-3 shadow-[0_10px_30px_-14px_rgba(180,86,46,0.35)] backdrop-blur-xl">
@@ -116,12 +129,14 @@ export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
       </div>
 
       <button
-        onClick={onAdd}
+        onClick={() => requireUnlock(onAdd)}
         className="fixed bottom-6 right-5 z-30 flex items-center gap-2 rounded-full bg-clay px-5 py-4 text-[15px] font-bold text-cream shadow-[0_14px_30px_-8px_rgba(180,86,46,0.6)] transition-colors duration-200 hover:bg-clay-soft"
       >
         <span className="font-mono text-lg leading-none">+</span>
         추가
       </button>
+
+      {dialog}
     </AppBackground>
   );
 }

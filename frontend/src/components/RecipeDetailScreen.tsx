@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import { MEAL_TIME_LABELS, recipeService, type Recipe } from "@/services";
+import {
+  MEAL_TIME_LABELS,
+  isUnauthorized,
+  recipeService,
+  type Recipe,
+} from "@/services";
 import { AppBackground } from "./AppBackground";
+import { useUnlockGate } from "./useUnlockGate";
 import { relativeKo } from "@/lib/format";
 
 interface Props {
@@ -20,6 +26,8 @@ export function RecipeDetailScreen({
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const { requireUnlock, dialog } = useUnlockGate();
+  const askToDelete = () => requireUnlock(() => setConfirming(true));
 
   useEffect(() => {
     let alive = true;
@@ -34,7 +42,15 @@ export function RecipeDetailScreen({
   }, [recipeId]);
 
   async function handleDelete() {
-    await recipeService.deleteRecipe(recipeId);
+    try {
+      await recipeService.deleteRecipe(recipeId);
+    } catch (error) {
+      if (!isUnauthorized(error)) throw error;
+      // The remembered password is no longer valid: ask for it again.
+      setConfirming(false);
+      askToDelete();
+      return;
+    }
     onDeleted();
   }
 
@@ -130,13 +146,13 @@ export function RecipeDetailScreen({
 
       <div className="rise rise-4 mt-5 flex gap-2">
         <button
-          onClick={onEdit}
+          onClick={() => requireUnlock(onEdit)}
           className="flex-1 rounded-2xl bg-ink py-3.5 text-[15px] font-semibold text-cream"
         >
           수정
         </button>
         <button
-          onClick={() => setConfirming(true)}
+          onClick={askToDelete}
           className="rounded-2xl border border-ink/15 bg-white/70 px-6 py-3.5 text-[15px] font-medium text-ink-soft"
         >
           삭제
@@ -171,6 +187,8 @@ export function RecipeDetailScreen({
           </div>
         </div>
       ) : null}
+
+      {dialog}
     </AppBackground>
   );
 }

@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { resetMockRecipes, mockRecipeService } from "@/services/mockRecipeService";
+import { ApiError } from "@/services/errors";
+import {
+  MOCK_PASSWORD,
+  resetMockRecipes,
+  mockRecipeService,
+} from "@/services/mockRecipeService";
 import { RecipeListScreen } from "./RecipeListScreen";
 import { RecipeDetailScreen } from "./RecipeDetailScreen";
 import { RecipeFormScreen } from "./RecipeFormScreen";
 
-beforeEach(() => {
+// Most tests start unlocked; "write protection" below covers the locked state.
+beforeEach(async () => {
   resetMockRecipes();
+  await mockRecipeService.unlock(MOCK_PASSWORD);
 });
 
 describe("RecipeListScreen", () => {
@@ -197,5 +204,137 @@ describe("RecipeDetailScreen", () => {
     await screen.findByRole("heading", { name: "소고기 애호박 미음" });
     await user.click(screen.getByRole("button", { name: "수정" }));
     expect(onEdit).toHaveBeenCalled();
+  });
+});
+
+describe("write protection", () => {
+  beforeEach(() => {
+    mockRecipeService.lock();
+  });
+
+  async function enterPassword(
+    user: ReturnType<typeof userEvent.setup>,
+    password: string,
+  ) {
+    const dialog = await screen.findByRole("dialog", { name: "비밀번호 입력" });
+    const input = within(dialog).getByLabelText("비밀번호");
+    await user.clear(input);
+    await user.type(input, password);
+    await user.click(within(dialog).getByRole("button", { name: "확인" }));
+  }
+
+  it("asks for the password before adding, then remembers it", async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={onAdd} />);
+    await screen.findByText("소고기 애호박 미음");
+    expect(screen.queryByRole("button", { name: "잠금" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /추가/ }));
+    await enterPassword(user, "wrong");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "비밀번호가 맞지 않아요.",
+    );
+    expect(onAdd).not.toHaveBeenCalled();
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() => expect(onAdd).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByRole("dialog", { name: "비밀번호 입력" }),
+    ).not.toBeInTheDocument();
+
+    // Remembered: the next add goes straight through.
+    await user.click(screen.getByRole("button", { name: /추가/ }));
+    expect(onAdd).toHaveBeenCalledTimes(2);
+  });
+
+  it("locks again with the lock button", async () => {
+    const user = userEvent.setup();
+    await mockRecipeService.unlock(MOCK_PASSWORD);
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await user.click(await screen.findByRole("button", { name: "잠금" }));
+    expect(mockRecipeService.isUnlocked()).toBe(false);
+    expect(screen.queryByRole("button", { name: "잠금" })).not.toBeInTheDocument();
+  });
+
+  it("cancelling the password dialog does nothing", async () => {
+    const user = userEvent.setup();
+    const onEdit = vi.fn();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-1"
+        onBack={vi.fn()}
+        onEdit={onEdit}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "소고기 애호박 미음" });
+    await user.click(screen.getByRole("button", { name: "수정" }));
+    const dialog = screen.getByRole("dialog", { name: "비밀번호 입력" });
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+    expect(dialog).not.toBeInTheDocument();
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("asks for the password before the delete confirmation", async () => {
+    const user = userEvent.setup();
+    const onDeleted = vi.fn();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-1"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={onDeleted}
+      />,
+    );
+    await screen.findByRole("heading", { name: "소고기 애호박 미음" });
+    await user.click(screen.getByRole("button", { name: "삭제" }));
+    expect(screen.queryByRole("dialog", { name: "삭제 확인" })).not.toBeInTheDocument();
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await user.click(
+      within(await screen.findByRole("dialog", { name: "삭제 확인" })).getByRole(
+        "button",
+        { name: "삭제하기" },
+      ),
+    );
+    await waitFor(() => expect(onDeleted).toHaveBeenCalled());
+    expect(await mockRecipeService.getRecipe("seed-1")).toBeNull();
+  });
+
+  it("asks for the password when saving the form, then saves", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    render(<RecipeFormScreen onSaved={onSaved} onCancel={vi.fn()} />);
+    await user.type(screen.getByLabelText("메뉴 이름"), "감자 미음");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    expect(onSaved).not.toHaveBeenCalled();
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const created = await mockRecipeService.getRecipe(onSaved.mock.calls[0]![0]);
+    expect(created?.name).toBe("감자 미음");
+  });
+
+  it("asks again when the remembered password is rejected", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    // A password is remembered, but the server rejects it (e.g. it changed):
+    // the service forgets it and throws a 401.
+    await mockRecipeService.unlock(MOCK_PASSWORD);
+    const create = vi
+      .spyOn(mockRecipeService, "createRecipe")
+      .mockImplementationOnce(async () => {
+        mockRecipeService.lock();
+        throw new ApiError(401, "Wrong or missing password");
+      });
+    render(<RecipeFormScreen onSaved={onSaved} onCancel={vi.fn()} />);
+    await user.type(screen.getByLabelText("메뉴 이름"), "감자 미음");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(create).toHaveBeenCalledTimes(2);
+    create.mockRestore();
   });
 });
