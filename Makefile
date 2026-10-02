@@ -16,4 +16,6 @@ else
 endif
 
 # `back` and `front` are arguments to `run`, not standalone targets.
-back front: ;
+# `cd .` is a silent no-op in both shells.
+back front:
+	@cd .
