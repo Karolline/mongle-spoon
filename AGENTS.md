@@ -25,14 +25,14 @@ Backend (run inside `backend/`, dependencies managed with `uv`, Python 3.13+):
 - Install: `uv sync`
 - Add a dependency: `uv add <package>` (dev-only: `uv add --dev <package>`)
 - Run Python: `uv run python ...`
-- Dev server: `uv run uvicorn app.main:app --reload` (http://localhost:8000, interactive docs at `/docs`)
+- Dev server: `uv run uvicorn app.main:app --reload`, or `make run back` from the repo root (http://localhost:8000, interactive docs at `/docs`)
 - Test: `uv run pytest`
 - Allowed CORS origins: `CORS_ORIGINS` env var, comma-separated (default `http://localhost:5173`)
 
 Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
 - Install: `npm install`
-- Dev server: `npm run dev` (http://localhost:5173)
+- Dev server: `npm run dev`, or `make run front` from the repo root (http://localhost:5173)
 - Test: `npm test`
 - Typecheck + build: `npm run build`
 - Lint: `npm run lint`

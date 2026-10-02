@@ -27,6 +27,15 @@ AGENTS.md     # Instructions for coding agents
 
 ## Running locally
 
+From the repo root, start each dev server in its own terminal:
+
+```
+make run back    # backend, http://localhost:8000
+make run front   # frontend, http://localhost:5173
+```
+
+On Windows, install GNU make first (e.g. `winget install ezwinports.make`). The per-app commands below do the same without make.
+
 ### Frontend
 
 Requires Node.js 20.19+ or 22.12+. The frontend calls the backend at `http://localhost:8000`, so start the backend first.
