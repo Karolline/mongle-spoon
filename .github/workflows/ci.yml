@@ -1,0 +1,79 @@
+# Tests on every push and pull request. Render deploys main only after these
+# checks pass (Auto-Deploy: "After CI Checks Pass").
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (SQLite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.14" # same as the Docker image
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest
+
+  backend-postgres:
+    name: Backend (PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        # Same major version as Neon in production.
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: mongle
+          POSTGRES_PASSWORD: mongle
+          POSTGRES_DB: mongle_spoon_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mongle -d mongle_spoon_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgresql://mongle:mongle@127.0.0.1:5432/mongle_spoon_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # same as the Docker image
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build

@@ -1,0 +1,39 @@
+# Builds the Docker image and runs the compose smoke tests. Slower than ci.yml,
+# so it only runs when something that goes into the image or the stack changes.
+
+name: Compose
+
+on:
+  push:
+    paths: &image-paths
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yaml
+      - backend/pyproject.toml
+      - backend/uv.lock
+      - backend/tests/compose/**
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/compose.yml
+  pull_request:
+    paths: *image-paths
+
+concurrency:
+  group: compose-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Compose smoke tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest tests/compose
