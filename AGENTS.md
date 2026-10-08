@@ -67,4 +67,5 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - Ask before adding a new dependency.
 - Write tests with every change. All tests must pass before committing.
 - Commit regularly, in small commits that each leave the app working.
+- Don't push. The user pushes to GitHub themselves, unless they ask for a specific push.
 - When I correct you during a session, update the relevant doc so the correction sticks.
