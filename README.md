@@ -26,6 +26,7 @@ docs/            # Supporting docs (testing, ...)
 frontend/        # Frontend app
 backend/         # FastAPI backend and tests
 Dockerfile       # Single image: backend serving the built frontend
+docker-compose.yaml  # The image plus a local PostgreSQL
 ```
 
 ## Running locally
@@ -99,6 +100,19 @@ Then open http://localhost:8000.
 - The SQLite file is `/data/mongle_spoon.db`. Mount a volume on `/data`, or the recipes are lost when the container is removed. Set `DATABASE_URL` to use another database.
 - The server listens on `$PORT` when set (many hosting platforms set it), otherwise 8000.
 - The image runs uvicorn directly; `app.devserver` is for local development only.
+
+### Docker Compose (app + PostgreSQL)
+
+`docker-compose.yaml` runs the image against a local PostgreSQL 18, like production:
+
+```
+docker compose up -d --build   # build and start both; app on http://localhost:8000
+docker compose logs -f app
+docker compose down            # stop and remove the containers; data stays
+```
+
+- Writes use `ADMIN_PASSWORD` from your environment, default `dev`. `APP_PORT` changes the host port (e.g. `APP_PORT=8080` to run beside `make run back`).
+- PostgreSQL is published on `127.0.0.1:5432` (user/password `mongle`, database `mongle_spoon`), so the dev server or `TEST_DATABASE_URL` can use it too. Its data lives in the `mongle-spoon-pgdata` volume; `docker compose down -v` deletes it.
 
 ## Testing
 

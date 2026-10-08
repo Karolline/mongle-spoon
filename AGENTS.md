@@ -58,6 +58,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `app/frontend.py`: when `FRONTEND_DIST` is set (the Docker image), serves the built frontend for every non-`/api` path, falling back to `index.html` for client-side routes. Unknown `/api/...` paths stay JSON 404s.
 - `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
 - `Dockerfile` (repo root): builds the frontend with Node, then a Python image running the backend with the frontend build. SQLite goes to `/data` (mount a volume) unless `DATABASE_URL` points elsewhere.
+- `docker-compose.yaml` (repo root): services `db` (PostgreSQL 18, on `127.0.0.1:5432`, volume `mongle-spoon-pgdata`) and `app` (the image, pointed at `db`). `docker compose up -d --build`.
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 
 ## Rules

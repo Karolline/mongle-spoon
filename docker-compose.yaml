@@ -1,0 +1,47 @@
+# The app image plus a local PostgreSQL, for trying the production setup on
+# this machine.
+#
+#   docker compose up -d --build
+#
+# App: http://localhost:8000 (APP_PORT overrides). PostgreSQL is also published
+# on 127.0.0.1:5432 so local tools and `TEST_DATABASE_URL` can reach it.
+
+services:
+  db:
+    # Same major version as Neon in production.
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: mongle
+      POSTGRES_PASSWORD: mongle
+      POSTGRES_DB: mongle_spoon
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # From PostgreSQL 18 on, the volume goes on /var/lib/postgresql, not .../data.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mongle -d mongle_spoon"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: mongle-spoon
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the database host is the service name.
+      DATABASE_URL: postgresql://mongle:mongle@db:5432/mongle_spoon
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-dev}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    # Fixed name so the data survives `docker compose down` and matches the
+    # volume used by a manually started database container.
+    name: mongle-spoon-pgdata
