@@ -13,6 +13,7 @@ uv run pytest tests/integration   # integration tests only
 | Folder | What it covers | Database |
 |---|---|---|
 | `tests/unit/test_store.py` | `RecipeStore` on its own: search, meal-time filtering, sorting, create/update/delete, seeding, long text. | In-memory SQLite (`sqlite://`) |
+| `tests/unit/test_copy_db.py` | `copy_recipes()`: copies every recipe unchanged from a SQLite database, refuses a target that already has recipes, and the target still accepts new recipes. | In-memory SQLite as the source, `TEST_DATABASE_URL` as the target |
 | `tests/unit/test_db.py` | `normalize_url()`: plain PostgreSQL URLs get the psycopg driver, others are unchanged. | None |
 | `tests/unit/test_devserver.py` | The dev server's port check: refuses to start uvicorn when the port is taken. | None |
 | `tests/integration/test_recipes_api.py` | Each endpoint in `openapi.yaml` through HTTP: status codes, validation errors, camelCase JSON, CORS, and that every route goes through `require_access`. | In-memory SQLite |

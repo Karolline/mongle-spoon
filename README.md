@@ -65,6 +65,7 @@ cd backend
 uv sync
 uv run python -m app.devserver         # API at http://localhost:8000/api, docs at /docs
 uv run python -m app.seed               # optional: sample recipes, only into an empty DB
+uv run python -m app.copy_db "<URL>"    # copy ./mongle_spoon.db into another, empty DB (e.g. production)
 uv run pytest                           # all tests (unit + integration)
 ```
 

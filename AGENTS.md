@@ -53,6 +53,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `app/models.py`: Pydantic schemas. JSON is camelCase (aliases) to match the frontend types and `openapi.yaml`.
 - `app/store.py`: `RecipeStore`, backed by SQLAlchemy. Search, meal-time filtering, and sorting live here (as portable SQL), not in routers. Tests use in-memory SQLite (`sqlite://`) unless `TEST_DATABASE_URL` is set.
 - `app/seed.py`: `uv run python -m app.seed` inserts sample recipes, only into an empty database. Nothing is seeded automatically.
+- `app/copy_db.py`: `uv run python -m app.copy_db <TARGET_URL> [--source URL]` copies every recipe (ids and timestamps kept) from the local SQLite file into another database, in one transaction. Refuses a target that already has recipes.
 - `app/auth.py`: access control. `require_access` is attached to every router and allows everything (reads are public). `require_write` is attached to every write endpoint and checks `Authorization: Bearer <ADMIN_PASSWORD>` (constant-time compare); 401 when wrong, 503 when `ADMIN_PASSWORD` is unset. `POST /api/auth/verify` (`app/routers/auth.py`) lets the frontend check a password.
 - `app/routers/`: HTTP endpoints only, mounted under `/api` (so they never clash with frontend routes like `/recipes/<id>`). They get the store through the `get_store` dependency.
 - `app/frontend.py`: when `FRONTEND_DIST` is set (the Docker image), serves the built frontend for every non-`/api` path, falling back to `index.html` for client-side routes. Unknown `/api/...` paths stay JSON 404s.

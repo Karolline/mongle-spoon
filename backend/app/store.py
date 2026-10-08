@@ -77,14 +77,23 @@ class RecipeStore:
 
     def add(self, recipe: Recipe) -> Recipe:
         """Insert a recipe as-is, keeping its id and timestamps. Used for seeding."""
+        return self.add_all([recipe])[0]
+
+    def add_all(self, recipes: list[Recipe]) -> list[Recipe]:
+        """Insert recipes as-is in one transaction: all of them or none."""
         with self._sessions.begin() as session:
-            row = RecipeRow(
-                id=recipe.id, created_at=recipe.created_at, updated_at=recipe.updated_at
-            )
-            _fill_row(row, recipe)
-            session.add(row)
+            rows = []
+            for recipe in recipes:
+                row = RecipeRow(
+                    id=recipe.id,
+                    created_at=recipe.created_at,
+                    updated_at=recipe.updated_at,
+                )
+                _fill_row(row, recipe)
+                session.add(row)
+                rows.append(row)
             session.flush()
-            return _to_model(row)
+            return [_to_model(row) for row in rows]
 
     def is_empty(self) -> bool:
         with self._sessions() as session:
