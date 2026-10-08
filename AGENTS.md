@@ -16,7 +16,7 @@ The spec is [`product-spec.md`](product-spec.md). Read it before starting any ta
 
 - Frontend: React + Vite + TypeScript (Node.js), tested with Vitest, in `frontend/`
 - Backend: Python + FastAPI, in `backend/`
-- Database: SQLAlchemy + SQLite. Keep the code database-agnostic (no SQLite-only features); the DB URL comes from an environment variable.
+- Database: SQLAlchemy. SQLite for local development and tests, PostgreSQL (psycopg) in production. Keep the code database-agnostic (no SQLite- or Postgres-only features); the DB URL comes from an environment variable.
 
 ## Commands
 
@@ -26,7 +26,8 @@ Backend (run inside `backend/`, dependencies managed with `uv`, Python 3.13+):
 - Add a dependency: `uv add <package>` (dev-only: `uv add --dev <package>`)
 - Run Python: `uv run python ...`
 - Dev server: `uv run python -m app.devserver`, or `make run back` from the repo root (http://localhost:8000, interactive docs at `/docs`). It runs uvicorn with `--reload` but exits if port 8000 is already taken: on Windows uvicorn would otherwise share the port with a leftover server and requests could silently hit old code. Don't start uvicorn directly for local dev.
-- Test: `uv run pytest` (unit only: `uv run pytest tests/unit`, integration only: `uv run pytest tests/integration`)
+- Test: `uv run pytest` (unit only: `uv run pytest tests/unit`, integration only: `uv run pytest tests/integration`). On PostgreSQL: set `TEST_DATABASE_URL` to a throwaway database (tests drop and recreate its tables). Run both before committing database changes.
+- Local PostgreSQL URLs: use `127.0.0.1`, not `localhost`. On this Windows machine `localhost` tries IPv6 first and hangs against a Docker port published on 127.0.0.1.
 - Allowed CORS origins: `CORS_ORIGINS` env var, comma-separated (default `http://localhost:5173`)
 - Write password: `ADMIN_PASSWORD` env var. Unset means writes return 503. `make run back` defaults it to `dev`.
 
@@ -48,15 +49,15 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 ## Backend structure
 
 - `app/main.py`: `create_app()` wires CORS, the store, and routers. Without a store argument it uses a `RecipeStore` on `DATABASE_URL` (default `sqlite:///./mongle_spoon.db`, relative to `backend/`).
-- `app/db.py`: SQLAlchemy tables (`recipes`, `ingredients`, `recipe_meal_times`) and `make_engine()`, which also creates missing tables (no migrations yet). Datetimes are stored as UTC.
+- `app/db.py`: SQLAlchemy tables (`recipes`, `ingredients`, `recipe_meal_times`) and `make_engine()`, which also creates missing tables (no migrations yet). Datetimes are stored as UTC. User-entered text columns are `Text` (PostgreSQL enforces VARCHAR lengths, SQLite doesn't). `normalize_url()` maps plain `postgresql://`/`postgres://` URLs (as Neon gives them) to the psycopg driver.
 - `app/models.py`: Pydantic schemas. JSON is camelCase (aliases) to match the frontend types and `openapi.yaml`.
-- `app/store.py`: `RecipeStore`, backed by SQLAlchemy. Search, meal-time filtering, and sorting live here (as portable SQL), not in routers. Tests use an in-memory SQLite engine (`sqlite://`).
+- `app/store.py`: `RecipeStore`, backed by SQLAlchemy. Search, meal-time filtering, and sorting live here (as portable SQL), not in routers. Tests use in-memory SQLite (`sqlite://`) unless `TEST_DATABASE_URL` is set.
 - `app/seed.py`: `uv run python -m app.seed` inserts sample recipes, only into an empty database. Nothing is seeded automatically.
 - `app/auth.py`: access control. `require_access` is attached to every router and allows everything (reads are public). `require_write` is attached to every write endpoint and checks `Authorization: Bearer <ADMIN_PASSWORD>` (constant-time compare); 401 when wrong, 503 when `ADMIN_PASSWORD` is unset. `POST /api/auth/verify` (`app/routers/auth.py`) lets the frontend check a password.
 - `app/routers/`: HTTP endpoints only, mounted under `/api` (so they never clash with frontend routes like `/recipes/<id>`). They get the store through the `get_store` dependency.
 - `app/frontend.py`: when `FRONTEND_DIST` is set (the Docker image), serves the built frontend for every non-`/api` path, falling back to `index.html` for client-side routes. Unknown `/api/...` paths stay JSON 404s.
 - `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
-- `Dockerfile` (repo root): builds the frontend with Node, then a Python image running the backend with the frontend build. SQLite goes to `/data` (mount a volume).
+- `Dockerfile` (repo root): builds the frontend with Node, then a Python image running the backend with the frontend build. SQLite goes to `/data` (mount a volume) unless `DATABASE_URL` points elsewhere.
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 
 ## Rules

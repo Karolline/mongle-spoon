@@ -139,3 +139,19 @@ def test_data_persists_in_a_database_file(tmp_path) -> None:
     )
     reopened = RecipeStore(engine=make_engine(url))
     assert reopened.get(created.id) == created
+
+
+def test_long_text_is_stored_in_full(store: RecipeStore) -> None:
+    long = "가" * 1000
+    created = store.create(
+        RecipeInput(
+            name=long,
+            ingredients=[Ingredient(name=long, amount=long)],
+            servings=long,
+        )
+    )
+    fetched = store.get(created.id)
+    assert fetched is not None
+    assert fetched.name == long
+    assert fetched.servings == long
+    assert fetched.ingredients == [Ingredient(name=long, amount=long)]

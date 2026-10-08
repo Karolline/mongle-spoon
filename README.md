@@ -6,7 +6,7 @@ Built as the Module 2 homework project for [AI Dev Tools Zoomcamp 2026](https://
 
 ## Status
 
-Frontend and FastAPI backend are connected over HTTP, and recipes are stored in SQLite through SQLAlchemy. The Docker image bundles both (see [Docker](#docker)). See [`product-spec.md`](product-spec.md).
+Frontend and FastAPI backend are connected over HTTP, and recipes are stored through SQLAlchemy: SQLite locally, PostgreSQL in production. The Docker image bundles both (see [Docker](#docker)). See [`product-spec.md`](product-spec.md).
 
 ## Tech stack
 
@@ -14,7 +14,7 @@ Frontend and FastAPI backend are connected over HTTP, and recipes are stored in 
 |---|---|
 | Frontend | React + Vite + TypeScript (Node.js), TanStack Router, Tailwind CSS, Vitest |
 | Backend | Python (managed with `uv`) + FastAPI (OpenAPI) |
-| Database | SQLAlchemy + SQLite |
+| Database | SQLAlchemy + SQLite (local) / PostgreSQL (production) |
 
 ## Repository layout
 
@@ -69,7 +69,7 @@ uv run pytest                           # all tests (unit + integration)
 
 `app.devserver` runs uvicorn with `--reload`, but first refuses to start if port 8000 is already taken. On Windows uvicorn would otherwise share the port with a leftover server (e.g. one whose terminal was closed without `Ctrl+C`), and requests could silently go to that old server.
 
-Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` (any SQLAlchemy URL) to use another file or database.
+Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` to use another database. A PostgreSQL URL can be pasted as given by the host (e.g. Neon's `postgresql://...?sslmode=require`); the backend uses the psycopg driver for it. For a local PostgreSQL, write `127.0.0.1` rather than `localhost` (on Windows, `localhost` may try IPv6 first and hang).
 
 Allowed CORS origins come from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).
 
@@ -102,4 +102,4 @@ Then open http://localhost:8000.
 
 ## Testing
 
-Backend tests are split into `backend/tests/unit/` (the store on its own) and `backend/tests/integration/` (HTTP endpoints and end-to-end user workflows against a real SQLite file). Run one group with `uv run pytest tests/unit` or `uv run pytest tests/integration`. See [`docs/testing.md`](docs/testing.md) for what each suite covers.
+Backend tests are split into `backend/tests/unit/` (the store on its own) and `backend/tests/integration/` (HTTP endpoints and end-to-end user workflows against a real SQLite file). Run one group with `uv run pytest tests/unit` or `uv run pytest tests/integration`. To run the same tests on PostgreSQL, point `TEST_DATABASE_URL` at a throwaway database (its tables are dropped and recreated): `TEST_DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/DBNAME uv run pytest`. See [`docs/testing.md`](docs/testing.md) for what each suite covers.

@@ -1,7 +1,9 @@
 """Database tables and engine setup (SQLAlchemy).
 
-Only portable column types and queries are used, so switching DATABASE_URL
-to another database (e.g. Postgres) needs no code changes, just a driver.
+Only portable column types and queries are used, so the same code runs on
+SQLite (local development, tests) and PostgreSQL (production, via psycopg).
+User-entered text is stored as unbounded Text: SQLite ignores VARCHAR lengths
+but PostgreSQL enforces them, so a length limit would only fail in production.
 """
 
 import os
@@ -53,9 +55,9 @@ class RecipeRow(Base):
     __tablename__ = "recipes"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    name: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(Text)
     instructions: Mapped[str] = mapped_column(Text, default="")
-    servings: Mapped[str] = mapped_column(String(100), default="")
+    servings: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
@@ -80,8 +82,8 @@ class IngredientRow(Base):
         ForeignKey("recipes.id", ondelete="CASCADE"), index=True
     )
     position: Mapped[int] = mapped_column(Integer)
-    name: Mapped[str] = mapped_column(String(200))
-    amount: Mapped[str] = mapped_column(String(100))
+    name: Mapped[str] = mapped_column(Text)
+    amount: Mapped[str] = mapped_column(Text)
 
 
 class MealTimeRow(Base):
@@ -98,10 +100,25 @@ def database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 
+def normalize_url(url: str) -> str:
+    """Use the psycopg (v3) driver for plain PostgreSQL URLs.
+
+    Hosts like Neon hand out `postgresql://...` (or `postgres://...`), which
+    SQLAlchemy would map to psycopg2. URLs that name a driver are kept as-is.
+    """
+    for scheme in ("postgresql://", "postgres://"):
+        if url.startswith(scheme):
+            return "postgresql+psycopg://" + url.removeprefix(scheme)
+    return url
+
+
 def make_engine(url: str | None = None) -> Engine:
     """Create an engine and make sure the tables exist."""
-    url = url or database_url()
+    url = normalize_url(url or database_url())
     kwargs: dict = {}
+    if url.startswith("postgresql"):
+        # Hosted Postgres (e.g. Neon) closes idle connections; check before reuse.
+        kwargs["pool_pre_ping"] = True
     if url.startswith("sqlite"):
         # FastAPI runs sync endpoints in a thread pool.
         kwargs["connect_args"] = {"check_same_thread": False}
