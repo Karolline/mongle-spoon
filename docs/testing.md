@@ -32,6 +32,16 @@ TEST_DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/DBNAME uv run pytest
 
 Use a throwaway database, never the dev or production one: every test drops and recreates all tables. With the local Docker database, use `127.0.0.1`, not `localhost` (on Windows `localhost` tries IPv6 first and can hang). `test_store.py::test_data_persists_in_a_database_file` always uses a SQLite file.
 
+### Against docker-compose.yaml
+
+`tests/compose/test_compose.py` builds and starts the real stack (`docker compose up --build`) and checks two things: the frontend was built into the image and is served, and the backend stores recipes in the PostgreSQL container (read back with `psql`). It needs Docker, takes about a minute, and is not part of the default run:
+
+```
+uv run pytest tests/compose
+```
+
+It uses its own project name, volume and ports (app on 18000, PostgreSQL on 15432), so a stack running for development keeps its data and can stay up. The test volume is deleted afterwards. The build does re-tag the `mongle-spoon` image.
+
 ## Frontend (`frontend/src/**/*.test.ts(x)`)
 
 Run inside `frontend/`:

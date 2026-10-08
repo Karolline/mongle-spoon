@@ -4,7 +4,8 @@
 #   docker compose up -d --build
 #
 # App: http://localhost:8000 (APP_PORT overrides). PostgreSQL is also published
-# on 127.0.0.1:5432 so local tools and `TEST_DATABASE_URL` can reach it.
+# on 127.0.0.1:5432 (DB_PORT overrides) so local tools and `TEST_DATABASE_URL`
+# can reach it.
 
 services:
   db:
@@ -15,7 +16,7 @@ services:
       POSTGRES_PASSWORD: mongle
       POSTGRES_DB: mongle_spoon
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       # From PostgreSQL 18 on, the volume goes on /var/lib/postgresql, not .../data.
       - pgdata:/var/lib/postgresql
@@ -43,5 +44,6 @@ services:
 volumes:
   pgdata:
     # Fixed name so the data survives `docker compose down` and matches the
-    # volume used by a manually started database container.
-    name: mongle-spoon-pgdata
+    # volume used by a manually started database container. The compose tests
+    # override it (and the ports) so they never touch this data.
+    name: ${PGDATA_VOLUME:-mongle-spoon-pgdata}

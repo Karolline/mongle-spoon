@@ -16,5 +16,6 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# tests/compose needs Docker and is slow; run it explicitly.
+testpaths = ["tests/unit", "tests/integration"]
 pythonpath = ["."]
