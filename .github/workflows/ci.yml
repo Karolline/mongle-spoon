@@ -21,7 +21,7 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0 # no major-version tag (v10) is published
         with:
           python-version: "3.14" # same as the Docker image
           enable-cache: true
@@ -53,7 +53,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://mongle:mongle@127.0.0.1:5432/mongle_spoon_test
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.2.0 # no major-version tag (v10) is published
         with:
           python-version: "3.14"
           enable-cache: true
