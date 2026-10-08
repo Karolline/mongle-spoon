@@ -40,7 +40,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 
 ## Frontend structure
 
-- `src/services/`: the services layer. `types.ts` is the interface (including `isUnlocked`/`unlock`/`lock` for the write password); `httpRecipeService.ts` calls the backend and `mockRecipeService.ts` is the in-memory mock. `index.ts` picks one: HTTP to `VITE_API_BASE_URL` (default `http://localhost:8000`), or the mock when `VITE_USE_MOCK_API=true` (always set for Vitest in `vite.config.ts`, so component tests never hit a server). Components never do search, meal-time filtering, or sorting themselves.
+- `src/services/`: the services layer. `types.ts` is the interface (including `isUnlocked`/`unlock`/`lock` for the write password); `httpRecipeService.ts` calls the backend and `mockRecipeService.ts` is the in-memory mock. `index.ts` picks one: HTTP to `VITE_API_BASE_URL` (default `http://localhost:8000/api`), or the mock when `VITE_USE_MOCK_API=true` (always set for Vitest in `vite.config.ts`, so component tests never hit a server). Components never do search, meal-time filtering, or sorting themselves.
 - Write password: the HTTP service keeps it in localStorage and sends it as `Authorization: Bearer` on writes only; the mock accepts `MOCK_PASSWORD` (`1234`). Screens gate write actions with `useUnlockGate()` (`src/components/useUnlockGate.tsx`), which shows `PasswordDialog`.
 - `src/components/*Screen.tsx`: screens. They receive navigation callbacks as props and never import the router, so they can be tested directly.
 - `src/router.tsx`: routes (TanStack Router, client-side only). Route components own navigation.
@@ -52,9 +52,11 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `app/models.py`: Pydantic schemas. JSON is camelCase (aliases) to match the frontend types and `openapi.yaml`.
 - `app/store.py`: `RecipeStore`, backed by SQLAlchemy. Search, meal-time filtering, and sorting live here (as portable SQL), not in routers. Tests use an in-memory SQLite engine (`sqlite://`).
 - `app/seed.py`: `uv run python -m app.seed` inserts sample recipes, only into an empty database. Nothing is seeded automatically.
-- `app/auth.py`: access control. `require_access` is attached to every router and allows everything (reads are public). `require_write` is attached to every write endpoint and checks `Authorization: Bearer <ADMIN_PASSWORD>` (constant-time compare); 401 when wrong, 503 when `ADMIN_PASSWORD` is unset. `POST /auth/verify` (`app/routers/auth.py`) lets the frontend check a password.
-- `app/routers/`: HTTP endpoints only. They get the store through the `get_store` dependency.
+- `app/auth.py`: access control. `require_access` is attached to every router and allows everything (reads are public). `require_write` is attached to every write endpoint and checks `Authorization: Bearer <ADMIN_PASSWORD>` (constant-time compare); 401 when wrong, 503 when `ADMIN_PASSWORD` is unset. `POST /api/auth/verify` (`app/routers/auth.py`) lets the frontend check a password.
+- `app/routers/`: HTTP endpoints only, mounted under `/api` (so they never clash with frontend routes like `/recipes/<id>`). They get the store through the `get_store` dependency.
+- `app/frontend.py`: when `FRONTEND_DIST` is set (the Docker image), serves the built frontend for every non-`/api` path, falling back to `index.html` for client-side routes. Unknown `/api/...` paths stay JSON 404s.
 - `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
+- `Dockerfile` (repo root): builds the frontend with Node, then a Python image running the backend with the frontend build. SQLite goes to `/data` (mount a volume).
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 
 ## Rules

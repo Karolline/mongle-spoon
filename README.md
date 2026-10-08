@@ -6,7 +6,7 @@ Built as the Module 2 homework project for [AI Dev Tools Zoomcamp 2026](https://
 
 ## Status
 
-Frontend and FastAPI backend are connected over HTTP, and recipes are stored in SQLite through SQLAlchemy. Deployment is next. See [`product-spec.md`](product-spec.md).
+Frontend and FastAPI backend are connected over HTTP, and recipes are stored in SQLite through SQLAlchemy. The Docker image bundles both (see [Docker](#docker)). See [`product-spec.md`](product-spec.md).
 
 ## Tech stack
 
@@ -25,6 +25,7 @@ AGENTS.md        # Instructions for coding agents
 docs/            # Supporting docs (testing, ...)
 frontend/        # Frontend app
 backend/         # FastAPI backend and tests
+Dockerfile       # Single image: backend serving the built frontend
 ```
 
 ## Running locally
@@ -51,7 +52,7 @@ npm test
 
 Optional settings (put them in `frontend/.env.local`, see `frontend/.env.example`):
 
-- `VITE_API_BASE_URL`: backend origin (default `http://localhost:8000`)
+- `VITE_API_BASE_URL`: backend API root (default `http://localhost:8000/api`)
 - `VITE_USE_MOCK_API=true`: run against the in-memory mock instead of the backend (tests always use the mock)
 
 ### Backend
@@ -61,7 +62,7 @@ Requires Python 3.13+ and [`uv`](https://docs.astral.sh/uv/).
 ```
 cd backend
 uv sync
-uv run python -m app.devserver         # http://localhost:8000, docs at /docs
+uv run python -m app.devserver         # API at http://localhost:8000/api, docs at /docs
 uv run python -m app.seed               # optional: sample recipes, only into an empty DB
 uv run pytest                           # all tests (unit + integration)
 ```
@@ -82,6 +83,22 @@ Anyone with the URL can view recipes, but adding, editing, and deleting need a p
 - Use printable ASCII only (it is sent in an HTTP header). Always deploy behind HTTPS so it is not sent in plain text.
 
 In the app, the first add, edit, or delete asks for the password and the browser remembers it. [잠금] on the list screen forgets it. With `VITE_USE_MOCK_API=true` the password is `1234`.
+
+## Docker
+
+The `Dockerfile` builds the frontend with Node, then a Python image where FastAPI serves the API under `/api` and the frontend everywhere else, on one port.
+
+```
+docker build -t mongle-spoon .
+docker run -p 8000:8000 -e ADMIN_PASSWORD=change-me -v mongle-data:/data mongle-spoon
+```
+
+Then open http://localhost:8000.
+
+- `ADMIN_PASSWORD`: required for writes (see [Write password](#write-password)).
+- The SQLite file is `/data/mongle_spoon.db`. Mount a volume on `/data`, or the recipes are lost when the container is removed. Set `DATABASE_URL` to use another database.
+- The server listens on `$PORT` when set (many hosting platforms set it), otherwise 8000.
+- The image runs uvicorn directly; `app.devserver` is for local development only.
 
 ## Testing
 

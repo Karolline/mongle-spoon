@@ -16,6 +16,7 @@ uv run pytest tests/integration   # integration tests only
 | `tests/unit/test_devserver.py` | The dev server's port check: refuses to start uvicorn when the port is taken. | None |
 | `tests/integration/test_recipes_api.py` | Each endpoint in `openapi.yaml` through HTTP: status codes, validation errors, camelCase JSON, CORS, and that every route goes through `require_access`. | In-memory SQLite |
 | `tests/integration/test_auth.py` | Write protection: reads need no password; create, update and delete return 401 without or with a wrong password and 503 when `ADMIN_PASSWORD` is unset; `/auth/verify`; CORS allows the `Authorization` header. | In-memory SQLite |
+| `tests/integration/test_frontend.py` | Serving the built frontend (a fake `dist` folder): app routes get `index.html`, built files are served, `/api` keeps answering JSON and unknown `/api/...` paths stay 404. | In-memory SQLite |
 | `tests/integration/test_workflows.py` | Key user workflows from [`product-spec.md`](../product-spec.md) end to end (add, find by search and meal time, edit, delete), plus persistence across an app restart. Uses the default app wiring, so `DATABASE_URL` is read like in the dev server. | SQLite file in a temp folder |
 
 Shared fixtures live in `tests/conftest.py`. It sets `DATABASE_URL=sqlite://` before the app is imported, so no test touches the real `mongle_spoon.db`, and sets `ADMIN_PASSWORD=test-password`. `client` and `empty_client` send that password with every request; `anon_client` sends none. A fake clock makes `updatedAt` ordering deterministic.

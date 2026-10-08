@@ -27,7 +27,7 @@ def test_add_find_edit_delete_recipe(database_url: str) -> None:
 
     # Add two recipes; the newest one is listed first.
     potato = client.post(
-        "/recipes",
+        "/api/recipes",
         json={
             "name": "감자 미음",
             "ingredients": [{"name": "감자", "amount": "1/2개"}],
@@ -35,24 +35,24 @@ def test_add_find_edit_delete_recipe(database_url: str) -> None:
         },
     ).json()
     client.post(
-        "/recipes",
+        "/api/recipes",
         json={
             "name": "소고기 진밥",
             "ingredients": [{"name": "소고기", "amount": "30g"}, {"name": "감자", "amount": "10g"}],
             "mealTimes": ["lunch_dinner"],
         },
     )
-    assert names(client.get("/recipes")) == ["소고기 진밥", "감자 미음"]
+    assert names(client.get("/api/recipes")) == ["소고기 진밥", "감자 미음"]
 
     # Search matches ingredient names, and the meal-time filter narrows it down.
-    assert names(client.get("/recipes", params={"search": "감자"})) == ["소고기 진밥", "감자 미음"]
-    assert names(client.get("/recipes", params={"search": "감자", "mealTime": "breakfast"})) == [
+    assert names(client.get("/api/recipes", params={"search": "감자"})) == ["소고기 진밥", "감자 미음"]
+    assert names(client.get("/api/recipes", params={"search": "감자", "mealTime": "breakfast"})) == [
         "감자 미음"
     ]
 
     # Editing a recipe moves it to the top of the list.
     edited = client.put(
-        f"/recipes/{potato['id']}",
+        f"/api/recipes/{potato['id']}",
         json={
             "name": "감자 당근 미음",
             "ingredients": potato["ingredients"],
@@ -60,17 +60,17 @@ def test_add_find_edit_delete_recipe(database_url: str) -> None:
         },
     ).json()
     assert edited["createdAt"] == potato["createdAt"]
-    assert names(client.get("/recipes")) == ["감자 당근 미음", "소고기 진밥"]
-    assert names(client.get("/recipes", params={"mealTime": "snack"})) == ["감자 당근 미음"]
+    assert names(client.get("/api/recipes")) == ["감자 당근 미음", "소고기 진밥"]
+    assert names(client.get("/api/recipes", params={"mealTime": "snack"})) == ["감자 당근 미음"]
 
     # Deleting removes it from the list and the detail endpoint.
-    assert client.delete(f"/recipes/{potato['id']}").status_code == 204
-    assert client.get(f"/recipes/{potato['id']}").status_code == 404
-    assert names(client.get("/recipes")) == ["소고기 진밥"]
+    assert client.delete(f"/api/recipes/{potato['id']}").status_code == 204
+    assert client.get(f"/api/recipes/{potato['id']}").status_code == 404
+    assert names(client.get("/api/recipes")) == ["소고기 진밥"]
 
 
 def test_recipes_survive_app_restart(database_url: str) -> None:
     writer = TestClient(create_app(), headers=AUTH)
-    created = writer.post("/recipes", json={"name": "단호박 퓨레"}).json()
+    created = writer.post("/api/recipes", json={"name": "단호박 퓨레"}).json()
     # A fresh app on the same database sees the recipe.
-    assert TestClient(create_app()).get(f"/recipes/{created['id']}").json() == created
+    assert TestClient(create_app()).get(f"/api/recipes/{created['id']}").json() == created

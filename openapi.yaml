@@ -14,8 +14,10 @@ info:
     - JSON field names are camelCase, matching the frontend types.
     - Timestamps are ISO 8601 strings in UTC (e.g. `2026-09-30T08:15:00.000Z`).
 servers:
-  - url: http://localhost:8000
+  - url: http://localhost:8000/api
     description: Local development
+  - url: /api
+    description: Same origin, when the backend also serves the frontend (Docker image)
 
 # Reads are public; write operations declare `adminPassword` themselves.
 security: []
