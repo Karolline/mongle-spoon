@@ -36,7 +36,7 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 - **List:** sorted by most recently updated first.
 - **Search:** one search box that matches both recipe names and ingredient names.
-- **Filter:** meal time buttons [전체] [아침] [점심·저녁] [간식]. The filter works together with search.
+- **Filter:** meal time buttons [전체] [아침] [점심·저녁] [간식]. The filter works together with search. Tapping the active meal time button again clears the filter (same as [전체]).
 
 ## MVP scope
 

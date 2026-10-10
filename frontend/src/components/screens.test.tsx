@@ -47,6 +47,25 @@ describe("RecipeListScreen", () => {
     expect(screen.getByText("단호박 고구마 매시")).toBeInTheDocument();
   });
 
+  it("clears the meal-time filter when the active chip is tapped again", async () => {
+    const user = userEvent.setup();
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const snack = screen.getByRole("button", { name: "간식" });
+    await user.click(snack);
+    await waitFor(() =>
+      expect(screen.queryByText("닭안심 브로콜리 죽")).not.toBeInTheDocument(),
+    );
+    await user.click(snack);
+    await screen.findByText("닭안심 브로콜리 죽");
+    expect(snack).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("5개");
+  });
+
   it("shows a friendly message when search has no results", async () => {
     const user = userEvent.setup();
     render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);

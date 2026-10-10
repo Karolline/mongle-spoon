@@ -132,7 +132,8 @@ export function RecipeListScreen({
               key={mt}
               label={MEAL_TIME_LABELS[mt]}
               active={mealTime === mt}
-              onClick={() => setMealTime(mt)}
+              // Tapping the active chip again clears the filter, like 전체.
+              onClick={() => setMealTime(mealTime === mt ? null : mt)}
             />
           ))}
         </div>
