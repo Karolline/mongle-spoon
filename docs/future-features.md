@@ -55,6 +55,31 @@
 - DB 구조를 바꾸면(예: 1번의 `pinned_at` 컬럼) dev와 prod 양쪽에 적용해야 합니다. 그래서 환경을 분리하면 Alembic 같은 마이그레이션 도구의 필요성이 더 커집니다.
 - 코드 쪽 할 일: `.github/workflows/ci.yml` 상단 주석과 배포 관련 문서(`AGENTS.md`)를 새 흐름에 맞게 수정. 나중에는 Render 설정을 `render.yaml`(Blueprint)로 코드화(IaC)할 수 있습니다.
 
+#### 해야 할 일 (순서대로)
+
+⚠️ 3번을 마치기 전에는 `main`에 push하면 지금처럼 바로 운영에 배포됩니다.
+
+1. **로컬 커밋 push**: 아직 push하지 않은 커밋을 먼저 올립니다. 운영에 나가도 괜찮은 상태인지 확인하세요.
+   ```
+   git push origin main
+   ```
+2. **`prod` 브랜치 만들기**: 지금 `main`과 같은 상태로 만듭니다.
+   ```
+   git push origin main:prod
+   ```
+3. **Render: 지금 서비스를 `prod` 브랜치로 변경**: Settings → Build & Deploy → Branch를 `main` → `prod`로 바꿉니다. Auto-Deploy는 "After CI Checks Pass" 그대로 둡니다. 배포가 정상적으로 끝나고 사이트가 열리는지 확인합니다.
+4. **Neon: dev 브랜치 만들기**: Branches → New branch에서 이름은 `dev`, 부모는 지금 쓰는 브랜치로 합니다. 그 시점의 운영 데이터가 복사된 상태로 시작합니다. dev 브랜치의 Connection string을 복사해 둡니다.
+5. **Render: dev 서비스 새로 만들기**: New → Web Service에서 같은 GitHub repo를 선택하고 Docker로 만듭니다 (이름 예: `mongle-spoon-dev`).
+   - Branch: `main`, Auto-Deploy: "After CI Checks Pass"
+   - 환경변수: `DATABASE_URL` = 4번에서 복사한 dev 주소, `ADMIN_PASSWORD` = 운영과 다른 dev용 비밀번호
+   - 무료 플랜인지 확인
+6. **분리 확인**: dev 주소에서 테스트 레시피를 추가하고, 운영 주소에는 그 레시피가 **보이지 않는지** 확인합니다.
+7. **배포 흐름 시험**: 작은 변경을 `main`에 push해서 dev에만 배포되는지 확인합니다. 괜찮으면 운영으로 올립니다. CI가 통과하면 prod에 배포됩니다.
+   ```
+   git push origin main:prod
+   ```
+8. **문서 정리 (Claude에게 요청)**: `ci.yml` 상단 주석과 `AGENTS.md`의 배포 설명을 새 흐름에 맞게 수정합니다. 원하면 Render 설정을 `render.yaml`로 코드화(IaC)합니다.
+
 ## 추천 순서
 
 4 → 1 → 2 → 3. 4번을 먼저 하면 1번처럼 DB 구조를 바꾸는 작업을 dev DB에서 먼저 시험해 볼 수 있습니다. 1번은 마이그레이션을 갖출 좋은 기회이고, 2번과 3번에서도 어차피 필요합니다.
