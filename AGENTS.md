@@ -60,9 +60,24 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. `tests/compose/`: smoke tests against the running compose stack. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
 - `Dockerfile` (repo root): builds the frontend with Node, then a Python image running the backend with the frontend build. SQLite goes to `/data` (mount a volume) unless `DATABASE_URL` points elsewhere.
 - `docker-compose.yaml` (repo root): services `db` (PostgreSQL 18, on `127.0.0.1:5432`, volume `mongle-spoon-pgdata`) and `app` (the image, pointed at `db`). `docker compose up -d --build` `APP_PORT`, `DB_PORT` and `PGDATA_VOLUME` override ports and volume (the compose tests use this to stay off the dev data).
-- `.github/workflows/ci.yml`: on every push and PR, backend tests on SQLite and on PostgreSQL 18 (service container), and frontend test/lint/build. `.github/workflows/compose.yml` runs `tests/compose` only when image or compose inputs change (keep its `paths` list in sync). Render deploys `main` only after these checks pass.
+- `.github/workflows/ci.yml`: on every push and PR, backend tests on SQLite and on PostgreSQL 18 (service container), and frontend test/lint/build. `.github/workflows/compose.yml` runs `tests/compose` only when image or compose inputs change (keep its `paths` list in sync). Render deploys only after these checks pass (see Deployment).
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 - Versions: one `MAJOR.MINOR.PATCH` for the whole app, in several files, tagged `vX.Y.Z` in git, with changes listed in `CHANGELOG.md`. See [`docs/versioning.md`](docs/versioning.md). Bump the version only when the user asks for a release.
+
+## Deployment
+
+Two environments on Render, built from the same repo and Dockerfile. They differ only in Render environment variables (`DATABASE_URL`, `ADMIN_PASSWORD`).
+
+| | Dev (internal checks) | Prod (users) |
+|---|---|---|
+| Git branch | `main` | `prod` |
+| Deploys | every push to `main`, after CI passes | only when the user promotes `main` to `prod`, after CI passes |
+| Database | Neon branch `dev` | Neon production branch |
+
+- Promote: after checking dev, the user runs `git push origin main:prod`. This is a fast-forward: `prod` moves to the commit already tested on dev, and no new commit is made. Never commit to `prod` directly or force-push it; if the push is rejected, find out why.
+- Never point dev and prod at the same database.
+- A schema change has to reach both databases (`make_engine()` only creates missing tables).
+- The app version shown at the bottom of the list screen tells which version each environment runs.
 
 ## Rules
 

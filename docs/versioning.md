@@ -26,4 +26,5 @@ All of these must match. `backend/tests/unit/test_versions.py` fails if they don
 1. Add the version and its changes to the top of [`CHANGELOG.md`](../CHANGELOG.md).
 2. Update the version in every file above, run the tests, and commit (`Release vX.Y.Z`).
 3. Tag that commit: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
-4. The user pushes the commit and the tag (`git push && git push --tags`).
+4. The user pushes the commit and the tag (`git push && git push --tags`), which deploys it to dev.
+5. After checking it on dev, the user promotes it to production: `git push origin main:prod` (see Deployment in [`AGENTS.md`](../AGENTS.md)).

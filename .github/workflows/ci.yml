@@ -1,5 +1,6 @@
-# Tests on every push and pull request. Render deploys main only after these
-# checks pass (Auto-Deploy: "After CI Checks Pass").
+# Tests on every push and pull request. Render deploys only after these checks
+# pass (Auto-Deploy: "After CI Checks Pass"): main to the dev service, prod to
+# the production service. Promoting main to prod reruns them on the same commit.
 
 name: CI
 
