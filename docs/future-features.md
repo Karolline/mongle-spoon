@@ -43,6 +43,26 @@
 - 프론트엔드: 로그인 화면, 로그아웃, 서비스 계층에 로그인 상태 (mock에는 가짜 유저 필요).
 - 보안이 중요합니다 (토큰 보관, CSRF, 쿠키 설정). 스펙에 "나중에 할 것"으로 적혀 있습니다 ("User accounts, per-person permissions").
 
+## C. 개발 환경 (DevOps)
+
+### 6. dev / prod 환경 분리 — ★★☆
+
+지금은 `main`에 push하면 바로 운영에 반영됩니다. 실제 사용자가 생기면 잘못된 변경이 바로 운영에 나갈(회귀) 위험이 있으므로, 확인용 dev와 사용자용 prod를 나눕니다. 저장소는 하나로 두고, 브랜치·Render 서비스·Neon DB를 두 벌로 둡니다.
+
+|  | Dev (내부 확인용) | Prod (사용자용) |
+|---|---|---|
+| Git 브랜치 | `main` | `prod` |
+| 배포 | push할 때마다 자동 (CI 통과 후) | `main`을 `prod`로 merge할 때만 (CI 통과 후) |
+| Render 서비스 | 새로 만드는 dev 서비스 | 지금 쓰는 서비스 |
+| Neon DB | 새로 만드는 dev 브랜치 | 지금 쓰는 기존 브랜치 |
+| `ADMIN_PASSWORD` | dev용 값 | 지금 값 |
+
+- 코드와 Dockerfile은 같습니다. 다른 것은 Render의 환경변수(`DATABASE_URL`, `ADMIN_PASSWORD`)뿐입니다. 이미지가 프론트엔드를 같은 주소에서 제공하므로(`VITE_API_BASE_URL=/api`) `CORS_ORIGINS`는 따로 설정할 필요가 없습니다.
+- "수동 배포"는 `prod` 브랜치를 언제 갱신할지를 직접 정한다는 뜻입니다. prod 서비스의 Auto-Deploy는 "After CI Checks Pass"로 두고, merge가 곧 배포 버튼 역할을 합니다. (Auto-Deploy를 끄고 Render의 "Manual Deploy" 버튼으로 배포해도 됩니다.)
+- dev와 prod는 절대 같은 DB를 쓰면 안 됩니다. dev에서 지운 레시피가 운영에서도 사라집니다.
+- DB 구조를 바꾸면(예: 1번의 `pinned_at` 컬럼) dev와 prod 양쪽에 적용해야 합니다. 그래서 환경을 분리하면 Alembic 같은 마이그레이션 도구의 필요성이 더 커집니다.
+- 코드 쪽 할 일: `.github/workflows/ci.yml` 상단 주석과 배포 관련 문서(`AGENTS.md`)를 새 흐름에 맞게 수정. 나중에는 Render 설정을 `render.yaml`(Blueprint)로 코드화(IaC)할 수 있습니다.
+
 ## 추천 순서
 
-(2, 3 완료) → 1 → 4 → 5. 1번은 마이그레이션을 갖출 좋은 기회이고, 4번과 5번에서도 어차피 필요합니다.
+(2, 3 완료) → 6 → 1 → 4 → 5. 6번을 먼저 하면 1번처럼 DB 구조를 바꾸는 작업을 dev DB에서 먼저 시험해 볼 수 있습니다. 1번은 마이그레이션을 갖출 좋은 기회이고, 4번과 5번에서도 어차피 필요합니다.
