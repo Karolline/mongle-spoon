@@ -2,6 +2,10 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.0.3 (2026-10-10)
+
+- Tapping the selected meal-time filter button again clears the filter, the same as tapping [전체].
+
 ## v1.0.2 (2026-10-10)
 
 - The recipe list shows the app version in small text at the bottom.

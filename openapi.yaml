@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Mongle Spoon API
-  version: 1.0.2
+  version: 1.0.3
   summary: Backend for saving and looking up baby food recipes.
   description: |
     The contract the frontend services layer (`frontend/src/services/types.ts`,
