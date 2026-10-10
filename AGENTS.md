@@ -10,7 +10,7 @@ The spec is [`product-spec.md`](product-spec.md). Read it before starting any ta
 ## Language
 
 - All UI text is in Korean.
-- All code, comments, commit messages, and docs are in English.
+- All code, comments, commit messages, and docs are in English. Exception: [`docs/future-features.md`](docs/future-features.md) (the user's own wishlist) is in Korean.
 
 ## Tech stack (fixed, do not change)
 

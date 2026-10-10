@@ -1,56 +1,56 @@
-# Future features
+# 개발 예정 기능
 
-Ideas to build later. Nothing here is in scope yet; when one is picked up, move it into [`product-spec.md`](../product-spec.md) first.
+나중에 만들고 싶은 기능 목록입니다. 아직 범위에 들어간 것은 없으며, 하나를 시작할 때는 먼저 [`product-spec.md`](../product-spec.md)로 옮깁니다.
 
-Difficulty: ★☆☆ easy (an afternoon) · ★★☆ medium (a few days) · ★★★ hard (a week or more, new concepts to learn)
+난이도: ★☆☆ 쉬움 (반나절) · ★★☆ 보통 (며칠) · ★★★ 어려움 (일주일 이상, 새로 배울 개념 있음)
 
-## A. Small extensions to existing features
+## A. 기존 기능을 조금 확장하는 것
 
-### 1. Pin a recipe to the top (e.g. "making this today") — ★★☆
+### 1. 특정 레시피 최상단 고정 (예: "오늘 만들 것") — ★★☆
 
-Pinned recipes always show first on the list, above the usual sort.
+고정한 레시피는 평소 정렬과 상관없이 목록 맨 위에 나옵니다.
 
-- Backend: nullable `pinned_at` datetime on `recipes`; `RecipeStore` sorts pinned first (newest pin first), then as today. Expose it in `models.py` and `openapi.yaml`, plus a way to toggle it (a field on update, or `POST/DELETE /api/recipes/{id}/pin`). Pinning is a write, so it needs `require_write`.
-- Frontend: pin toggle on the card or detail screen (gated by `useUnlockGate()`), pin badge on the card. Update both `httpRecipeService` and `mockRecipeService`.
-- Watch out: there are no migrations yet. `make_engine()` only creates missing *tables*, so the new column will not appear in an existing database (local SQLite file, production PostgreSQL). Needs a manual `ALTER TABLE`, or this is the moment to introduce Alembic.
+- 백엔드: `recipes` 테이블에 비어 있을 수 있는 `pinned_at` 날짜 컬럼 추가. `RecipeStore`가 고정된 것을 먼저(최근에 고정한 순), 나머지는 지금처럼 정렬. `models.py`와 `openapi.yaml`에 반영하고, 고정/해제 방법 추가 (수정 요청의 필드로 하거나 `POST/DELETE /api/recipes/{id}/pin`). 고정도 쓰기 작업이므로 `require_write` 필요.
+- 프론트엔드: 카드나 상세 화면에 고정 버튼 (`useUnlockGate()`로 비밀번호 확인), 카드에 고정 표시. `httpRecipeService`와 `mockRecipeService` 둘 다 수정.
+- 주의: 아직 마이그레이션이 없습니다. `make_engine()`은 없는 *테이블*만 만들기 때문에, 이미 있는 데이터베이스(로컬 SQLite 파일, 운영 PostgreSQL)에는 새 컬럼이 생기지 않습니다. 직접 `ALTER TABLE`을 실행하거나, 이번에 Alembic을 도입해야 합니다.
 
-### 2. Show "connecting to the database" instead of 0 recipes — ★☆☆
+### 2. 레시피 0개 대신 "DB 연결 중" 표시 — ★☆☆
 
-When the server or database is slow to wake up (e.g. a free-tier host after idling), the list currently shows `0개` and the empty state, which looks like all recipes are gone.
+서버나 데이터베이스가 깨어나는 데 오래 걸릴 때(예: 무료 호스팅이 한동안 쉬고 난 뒤), 지금은 목록에 `0개`와 빈 화면이 나와서 레시피가 다 사라진 것처럼 보입니다.
 
-- Cause: `RecipeListScreen` starts with `totalCount = 0` and shows the count before the first load finishes, and a failed load is not handled at all.
-- Fix (frontend only): track `loading` / `error` state. While loading, show a message such as "레시피를 불러오는 중이에요…" instead of the count and empty state. On error, show "서버에 연결 중이에요. 잠시 후 다시 시도해 주세요." with a retry button (optionally retry automatically a few times).
-- Tests: make the mock service slow or failing in a test and check the messages.
+- 원인: `RecipeListScreen`이 `totalCount = 0`으로 시작해서 첫 로딩이 끝나기 전에 개수를 보여주고, 로딩 실패는 아예 처리하지 않습니다.
+- 해결 (프론트엔드만): `loading` / `error` 상태를 둡니다. 로딩 중에는 개수와 빈 화면 대신 "레시피를 불러오는 중이에요…" 같은 메시지를 보여줍니다. 실패하면 "서버에 연결 중이에요. 잠시 후 다시 시도해 주세요."와 다시 시도 버튼을 보여줍니다 (몇 번 자동으로 다시 시도해도 좋음).
+- 테스트: 테스트에서 mock 서비스를 느리게 하거나 실패하게 만들고 메시지를 확인합니다.
 
-### 3. Header count shows the filtered result count — ★☆☆
+### 3. 우측 상단 개수를 필터링 결과 개수로 표시 — ★☆☆
 
-The count in the top-right corner (e.g. `14개`) always shows the total number of recipes, even while a meal time filter or search is active.
+우측 상단 개수(예: `14개`)가 끼니 필터나 검색을 적용해도 항상 전체 레시피 개수로 나옵니다.
 
-- Cause: `RecipeListScreen.load()` sets `totalCount` from a second, unfiltered `listRecipes()` call.
-- Fix (frontend only): while filtering, show the number of filtered results instead (or both, e.g. `3 / 14개`; decide which reads better). Without a filter, keep the total. If only the filtered count is needed, the second unfiltered request can be dropped.
-- Tests: pick a meal time filter in a `RecipeListScreen` test and check the header count.
+- 원인: `RecipeListScreen.load()`가 필터 없는 `listRecipes()`를 한 번 더 호출해서 그 결과로 `totalCount`를 정합니다.
+- 해결 (프론트엔드만): 필터링 중에는 결과 개수를 보여줍니다 (또는 `3 / 14개`처럼 둘 다. 어느 쪽이 보기 좋은지 정하기). 필터가 없으면 지금처럼 전체 개수. 결과 개수만 보여주기로 하면 필터 없는 두 번째 요청은 없앨 수 있습니다.
+- 테스트: `RecipeListScreen` 테스트에서 끼니 필터를 고르고 우측 상단 개수를 확인합니다.
 
-## B. New features
+## B. 완전히 새로 만드는 기능
 
-### 4. Recipe photos — ★★★
+### 4. 사진 추가 — ★★★
 
-Attach one or more photos to a recipe, shown on the detail screen (and maybe a thumbnail on the card).
+레시피에 사진을 한 장 이상 붙이고, 상세 화면에서 보여줍니다 (카드에 작은 썸네일도 고려).
 
-- Storage is the hard part: the deployed server's disk is not permanent, so files must go to object storage (e.g. Cloudflare R2, S3, Cloudinary). Storing images in the database is possible but not recommended.
-- Backend: upload endpoint (multipart, size/type limits), a `recipe_photos` table (recipe id, storage key, order), deleting photos when the recipe is deleted. New dependencies (storage SDK, maybe image resizing): ask first.
-- Frontend: file picker / camera on mobile, upload progress, resize before upload to save data.
-- Listed as "out of scope (later)" in the spec.
+- 저장소가 어려운 부분: 배포 서버의 디스크는 영구적이지 않아서 파일을 외부 저장소(예: Cloudflare R2, S3, Cloudinary)에 올려야 합니다. 데이터베이스에 이미지를 넣는 것도 가능하지만 권장하지 않습니다.
+- 백엔드: 업로드 엔드포인트 (multipart, 크기/형식 제한), `recipe_photos` 테이블 (레시피 id, 저장소 키, 순서), 레시피를 삭제하면 사진도 삭제. 새 의존성(저장소 SDK, 이미지 리사이즈 등)은 먼저 물어보기.
+- 프론트엔드: 파일 선택 / 모바일 카메라, 업로드 진행 표시, 데이터 절약을 위해 업로드 전에 크기 줄이기.
+- 스펙에 "나중에 할 것(Out of scope)"으로 적혀 있습니다.
 
-### 5. Kakao login, each user sees only their own recipes — ★★★
+### 5. 카카오 로그인 (유저마다 자기 레시피만 보이게) — ★★★
 
-Replaces the shared write password with real accounts.
+공용 쓰기 비밀번호를 실제 계정으로 바꿉니다.
 
-- Kakao side: register an app on Kakao Developers, set redirect URLs for local and production.
-- Backend: OAuth login flow (redirect → Kakao → callback), a `users` table, `owner_id` on `recipes`, sessions or tokens, and every store query filtered by the current user. `require_access` / `require_write` in `app/auth.py` become "logged-in user owns this".
-- Existing data: decide which user owns the recipes already saved.
-- Frontend: login screen, logout, logged-in state in the services layer (the mock needs a fake user).
-- Security matters here (token storage, CSRF, cookie settings). Listed as "out of scope (later)" in the spec ("User accounts, per-person permissions").
+- 카카오 쪽: Kakao Developers에 앱 등록, 로컬과 운영용 리다이렉트 URL 설정.
+- 백엔드: OAuth 로그인 흐름 (리다이렉트 → 카카오 → 콜백), `users` 테이블, `recipes`에 `owner_id`, 세션 또는 토큰, 모든 조회를 현재 유저 기준으로 필터링. `app/auth.py`의 `require_access` / `require_write`는 "로그인한 유저가 이 레시피의 주인인지" 확인으로 바뀜.
+- 기존 데이터: 이미 저장된 레시피를 어느 유저 것으로 할지 정해야 합니다.
+- 프론트엔드: 로그인 화면, 로그아웃, 서비스 계층에 로그인 상태 (mock에는 가짜 유저 필요).
+- 보안이 중요합니다 (토큰 보관, CSRF, 쿠키 설정). 스펙에 "나중에 할 것"으로 적혀 있습니다 ("User accounts, per-person permissions").
 
-## Suggested order
+## 추천 순서
 
-2 → 3 → 1 → 4 → 5. Items 2 and 3 are quick wins (both in `RecipeListScreen`, so they can be done together); item 1 is a good reason to set up migrations, which 4 and 5 will need anyway.
+2 → 3 → 1 → 4 → 5. 2번과 3번은 금방 끝나고 둘 다 `RecipeListScreen`이라 같이 하기 좋습니다. 1번은 마이그레이션을 갖출 좋은 기회이고, 4번과 5번에서도 어차피 필요합니다.
