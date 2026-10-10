@@ -22,9 +22,17 @@ When the server or database is slow to wake up (e.g. a free-tier host after idli
 - Fix (frontend only): track `loading` / `error` state. While loading, show a message such as "레시피를 불러오는 중이에요…" instead of the count and empty state. On error, show "서버에 연결 중이에요. 잠시 후 다시 시도해 주세요." with a retry button (optionally retry automatically a few times).
 - Tests: make the mock service slow or failing in a test and check the messages.
 
+### 3. Header count shows the filtered result count — ★☆☆
+
+The count in the top-right corner (e.g. `14개`) always shows the total number of recipes, even while a meal time filter or search is active.
+
+- Cause: `RecipeListScreen.load()` sets `totalCount` from a second, unfiltered `listRecipes()` call.
+- Fix (frontend only): while filtering, show the number of filtered results instead (or both, e.g. `3 / 14개`; decide which reads better). Without a filter, keep the total. If only the filtered count is needed, the second unfiltered request can be dropped.
+- Tests: pick a meal time filter in a `RecipeListScreen` test and check the header count.
+
 ## B. New features
 
-### 3. Recipe photos — ★★★
+### 4. Recipe photos — ★★★
 
 Attach one or more photos to a recipe, shown on the detail screen (and maybe a thumbnail on the card).
 
@@ -33,7 +41,7 @@ Attach one or more photos to a recipe, shown on the detail screen (and maybe a t
 - Frontend: file picker / camera on mobile, upload progress, resize before upload to save data.
 - Listed as "out of scope (later)" in the spec.
 
-### 4. Kakao login, each user sees only their own recipes — ★★★
+### 5. Kakao login, each user sees only their own recipes — ★★★
 
 Replaces the shared write password with real accounts.
 
@@ -45,4 +53,4 @@ Replaces the shared write password with real accounts.
 
 ## Suggested order
 
-2 → 1 → 3 → 4. Item 2 is a quick win; item 1 is a good reason to set up migrations, which 3 and 4 will need anyway.
+2 → 3 → 1 → 4 → 5. Items 2 and 3 are quick wins (both in `RecipeListScreen`, so they can be done together); item 1 is a good reason to set up migrations, which 4 and 5 will need anyway.
