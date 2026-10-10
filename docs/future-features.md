@@ -79,6 +79,10 @@
    git push origin main:prod
    ```
 8. **문서 정리 (Claude에게 요청)**: `ci.yml` 상단 주석과 `AGENTS.md`의 배포 설명을 새 흐름에 맞게 수정합니다. 원하면 Render 설정을 `render.yaml`로 코드화(IaC)합니다.
+9. **(선택) GitHub: `prod` 브랜치 보호**: Settings → Rules → Rulesets에서 `prod` 브랜치에 규칙을 겁니다. 혼자 하는 프로젝트라 필수는 아니지만 운영을 실수로부터 지켜 줍니다.
+   - Restrict deletions: 브랜치 삭제 금지
+   - Block force pushes: 운영 이력 덮어쓰기 금지
+   - Require status checks to pass: CI를 통과한 커밋만 허용
 
 ## 추천 순서
 
