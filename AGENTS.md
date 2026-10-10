@@ -62,6 +62,7 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `docker-compose.yaml` (repo root): services `db` (PostgreSQL 18, on `127.0.0.1:5432`, volume `mongle-spoon-pgdata`) and `app` (the image, pointed at `db`). `docker compose up -d --build` `APP_PORT`, `DB_PORT` and `PGDATA_VOLUME` override ports and volume (the compose tests use this to stay off the dev data).
 - `.github/workflows/ci.yml`: on every push and PR, backend tests on SQLite and on PostgreSQL 18 (service container), and frontend test/lint/build. `.github/workflows/compose.yml` runs `tests/compose` only when image or compose inputs change (keep its `paths` list in sync). Render deploys `main` only after these checks pass.
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
+- Versions: one `MAJOR.MINOR.PATCH` for the whole app, in several files, tagged `vX.Y.Z` in git, with changes listed in `CHANGELOG.md`. See [`docs/versioning.md`](docs/versioning.md). Bump the version only when the user asks for a release.
 
 ## Rules
 

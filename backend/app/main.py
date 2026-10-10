@@ -28,7 +28,7 @@ def create_app(store: RecipeStore | None = None, frontend_dist: Path | None = No
     if frontend_dist is None and os.environ.get("FRONTEND_DIST"):
         frontend_dist = Path(os.environ["FRONTEND_DIST"])
 
-    app = FastAPI(title="Mongle Spoon API", version="0.1.0")
+    app = FastAPI(title="Mongle Spoon API", version="1.0.1")
     app.state.store = store
     app.state.admin_password = admin_password_from_env()
     if app.state.admin_password is None:

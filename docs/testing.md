@@ -16,6 +16,7 @@ uv run pytest tests/integration   # integration tests only
 | `tests/unit/test_copy_db.py` | `copy_recipes()`: copies every recipe unchanged from a SQLite database, refuses a target that already has recipes, and the target still accepts new recipes. | In-memory SQLite as the source, `TEST_DATABASE_URL` as the target |
 | `tests/unit/test_db.py` | `normalize_url()`: plain PostgreSQL URLs get the psycopg driver, others are unchanged. | None |
 | `tests/unit/test_devserver.py` | The dev server's port check: refuses to start uvicorn when the port is taken. | None |
+| `tests/unit/test_versions.py` | The app version is the same in `pyproject.toml`, `frontend/package.json`, `openapi.yaml` and the FastAPI app (see [`versioning.md`](versioning.md)). | None |
 | `tests/integration/test_recipes_api.py` | Each endpoint in `openapi.yaml` through HTTP: status codes, validation errors, camelCase JSON, CORS, and that every route goes through `require_access`. | In-memory SQLite |
 | `tests/integration/test_auth.py` | Write protection: reads need no password; create, update and delete return 401 without or with a wrong password and 503 when `ADMIN_PASSWORD` is unset; `/auth/verify`; CORS allows the `Authorization` header. | In-memory SQLite |
 | `tests/integration/test_frontend.py` | Serving the built frontend (a fake `dist` folder): app routes get `index.html`, built files are served, `/api` keeps answering JSON and unknown `/api/...` paths stay 404. | In-memory SQLite |
