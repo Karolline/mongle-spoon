@@ -77,6 +77,14 @@ describe("RecipeListScreen", () => {
     );
   });
 
+  it("shows the app version at the bottom", async () => {
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const version = screen.getByTestId("app-version");
+    expect(version).toHaveTextContent(`v${__APP_VERSION__}`);
+    expect(version.textContent).toMatch(/^v\d+\.\d+\.\d+$/);
+  });
+
   it("opens a recipe and triggers add", async () => {
     const user = userEvent.setup();
     const onOpenRecipe = vi.fn();

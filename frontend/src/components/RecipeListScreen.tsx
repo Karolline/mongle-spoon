@@ -202,6 +202,13 @@ export function RecipeListScreen({
         )}
       </div>
 
+      <p
+        data-testid="app-version"
+        className="mt-10 text-center font-mono text-[10px] tracking-[0.16em] text-ink-faint"
+      >
+        v{__APP_VERSION__}
+      </p>
+
       <button
         onClick={() => requireUnlock(onAdd)}
         className="fixed bottom-6 right-5 z-30 flex items-center gap-2 rounded-full bg-clay px-5 py-4 text-[15px] font-bold text-cream shadow-[0_14px_30px_-8px_rgba(180,86,46,0.6)] transition-colors duration-200 hover:bg-clay-soft"

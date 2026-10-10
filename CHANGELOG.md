@@ -2,6 +2,10 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.0.2 (2026-10-10)
+
+- The recipe list shows the app version in small text at the bottom.
+
 ## v1.0.1 (2026-10-10)
 
 - The recipe list count shows the number of recipes matching the current search and meal-time filter, not every recipe.

@@ -44,6 +44,7 @@ Three screens:
 
 1. **List (home):** search box, meal time filter buttons, and recipe cards (name, meal times, servings), plus an [+ 추가] button. Shows a message when there are no recipes or no search results.
    - The count in the top right is the number of recipes currently shown (after search and filter).
+   - The app version (e.g. `v1.0.2`) is shown in small text at the bottom, so each deployment shows which version it runs.
    - While the first load is in progress, it shows "레시피를 불러오는 중이에요…" instead of a count or the empty message. If loading fails, it retries automatically a few times (about 30 seconds in total, e.g. while a free host wakes up), then shows "서버에 연결 중이에요" with a [다시 시도] button.
 2. **Detail:** all fields of one recipe, with [수정] and [삭제] buttons. Deleting asks for confirmation.
 3. **Add / edit form:** one screen for both. Ingredients are added and removed row by row. The recipe cannot be saved without a name.
