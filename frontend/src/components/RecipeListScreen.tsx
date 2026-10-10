@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import {
   MEAL_TIMES,
@@ -11,32 +11,71 @@ import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
 import { relativeKo } from "@/lib/format";
 
+/**
+ * Waits before each automatic retry when loading fails, e.g. while a free
+ * host or database wakes up (about 30 seconds in total).
+ */
+const DEFAULT_RETRY_DELAYS_MS = [3000, 9000, 18000];
+
+type LoadStatus = "loading" | "retrying" | "error" | "ready";
+
 interface Props {
   onOpenRecipe: (id: string) => void;
   onAdd: () => void;
+  /** Overridable so tests don't have to wait. Pass a stable array. */
+  retryDelaysMs?: number[];
 }
 
-export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
+export function RecipeListScreen({
+  onOpenRecipe,
+  onAdd,
+  retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
+}: Props) {
   const [search, setSearch] = useState("");
   const [mealTime, setMealTime] = useState<MealTime | null>(null);
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
+  const [status, setStatus] = useState<LoadStatus>("loading");
+  const [reloadKey, setReloadKey] = useState(0);
   const { unlocked, requireUnlock, lock, dialog } = useUnlockGate();
 
-  const load = useCallback(async () => {
-    const [filtered, all] = await Promise.all([
-      recipeService.listRecipes({ search, mealTime }),
-      recipeService.listRecipes(),
-    ]);
-    setRecipes(filtered);
-    setTotalCount(all.length);
-  }, [search, mealTime]);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Ignore responses from a load that a newer search or filter replaced.
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const attempt = async (retry: number) => {
+      try {
+        const result = await recipeService.listRecipes({ search, mealTime });
+        if (cancelled) return;
+        setRecipes(result);
+        setStatus("ready");
+      } catch {
+        if (cancelled) return;
+        const delay = retryDelaysMs[retry];
+        if (delay === undefined) {
+          setStatus("error");
+          return;
+        }
+        setStatus("retrying");
+        timer = setTimeout(() => void attempt(retry + 1), delay);
+      }
+    };
+
+    void attempt(0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [search, mealTime, retryDelaysMs, reloadKey]);
+
+  const retry = () => {
+    setStatus("loading");
+    setReloadKey((k) => k + 1);
+  };
 
   const isFiltering = search.trim().length > 0 || mealTime !== null;
+  // Previous results stay on screen while a new search or filter loads.
+  const shown = status === "error" ? null : recipes;
 
   return (
     <AppBackground>
@@ -59,9 +98,15 @@ export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
               잠금
             </button>
           ) : null}
-          <span className="font-mono text-[11px] tabular-nums text-ink-soft">
-            {totalCount}<span className="text-ink-faint">개</span>
-          </span>
+          {shown !== null ? (
+            <span
+              data-testid="recipe-count"
+              className="font-mono text-[11px] tabular-nums text-ink-soft"
+            >
+              {shown.length}
+              <span className="text-ink-faint">개</span>
+            </span>
+          ) : null}
         </div>
       </header>
 
@@ -94,7 +139,36 @@ export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
       </div>
 
       <div className="mt-5 space-y-4">
-        {recipes === null ? null : recipes.length === 0 ? (
+        {status === "error" ? (
+          <div
+            role="alert"
+            className="rise rise-2 rounded-3xl border border-dashed border-ink/15 bg-cream-deep/40 p-8 text-center"
+          >
+            <p className="text-[16px] font-bold">서버에 연결 중이에요</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+              잠시 후 다시 시도해 주세요.
+            </p>
+            <button
+              type="button"
+              onClick={retry}
+              className="mt-4 rounded-full bg-ink px-5 py-2.5 text-[13px] font-semibold text-cream"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : shown === null ? (
+          <div
+            role="status"
+            className="rise rise-2 rounded-3xl border border-dashed border-ink/15 bg-cream-deep/40 p-8 text-center"
+          >
+            <p className="text-[16px] font-bold">레시피를 불러오는 중이에요…</p>
+            {status === "retrying" ? (
+              <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+                서버가 깨어나는 중일 수 있어요. 조금만 기다려 주세요.
+              </p>
+            ) : null}
+          </div>
+        ) : shown.length === 0 ? (
           <div className="rise rise-2 rounded-3xl border border-dashed border-ink/15 bg-cream-deep/40 p-8 text-center">
             {isFiltering ? (
               <>
@@ -115,7 +189,7 @@ export function RecipeListScreen({ onOpenRecipe, onAdd }: Props) {
             )}
           </div>
         ) : (
-          recipes.map((recipe, i) => (
+          shown.map((recipe, i) => (
             <RecipeCard
               key={recipe.id}
               recipe={recipe}

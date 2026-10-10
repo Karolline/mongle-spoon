@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ApiError } from "@/services/errors";
@@ -62,6 +62,21 @@ describe("RecipeListScreen", () => {
     await screen.findByText("아직 저장된 레시피가 없어요");
   });
 
+  it("counts the filtered results, not every recipe", async () => {
+    const user = userEvent.setup();
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("5개");
+    await user.click(screen.getByRole("button", { name: "간식" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("recipe-count")).toHaveTextContent("3개"),
+    );
+    await user.type(screen.getByLabelText("이름 또는 재료 검색"), "단호박");
+    await waitFor(() =>
+      expect(screen.getByTestId("recipe-count")).toHaveTextContent("1개"),
+    );
+  });
+
   it("opens a recipe and triggers add", async () => {
     const user = userEvent.setup();
     const onOpenRecipe = vi.fn();
@@ -71,6 +86,73 @@ describe("RecipeListScreen", () => {
     expect(onOpenRecipe).toHaveBeenCalledWith("seed-1");
     await user.click(screen.getByRole("button", { name: /추가/ }));
     expect(onAdd).toHaveBeenCalled();
+  });
+});
+
+describe("RecipeListScreen loading", () => {
+  // Kept stable: a new array on every render would restart loading.
+  const NO_WAIT = [0, 0, 0];
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("shows a loading message instead of zero recipes", async () => {
+    vi.spyOn(mockRecipeService, "listRecipes").mockReturnValue(
+      new Promise(() => {}),
+    );
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    expect(
+      await screen.findByText("레시피를 불러오는 중이에요…"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("recipe-count")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("아직 저장된 레시피가 없어요"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("retries automatically until the server answers", async () => {
+    const real = mockRecipeService.listRecipes.bind(mockRecipeService);
+    const spy = vi
+      .spyOn(mockRecipeService, "listRecipes")
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementation(real);
+    render(
+      <RecipeListScreen
+        onOpenRecipe={vi.fn()}
+        onAdd={vi.fn()}
+        retryDelaysMs={NO_WAIT}
+      />,
+    );
+    await screen.findByText("소고기 애호박 미음");
+    expect(spy).toHaveBeenCalledTimes(3);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("offers a retry button after every automatic retry fails", async () => {
+    const user = userEvent.setup();
+    const real = mockRecipeService.listRecipes.bind(mockRecipeService);
+    const spy = vi
+      .spyOn(mockRecipeService, "listRecipes")
+      .mockRejectedValue(new Error("offline"));
+    render(
+      <RecipeListScreen
+        onOpenRecipe={vi.fn()}
+        onAdd={vi.fn()}
+        retryDelaysMs={NO_WAIT}
+      />,
+    );
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("서버에 연결 중이에요");
+    expect(spy).toHaveBeenCalledTimes(4);
+    expect(screen.queryByTestId("recipe-count")).not.toBeInTheDocument();
+
+    spy.mockImplementation(real);
+    await user.click(within(alert).getByRole("button", { name: "다시 시도" }));
+    await screen.findByText("소고기 애호박 미음");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("recipe-count")).toHaveTextContent("5개");
   });
 });
 
