@@ -16,6 +16,21 @@ Frontend and FastAPI backend are connected over HTTP, and recipes are stored thr
 | Backend | Python (managed with `uv`) + FastAPI (OpenAPI) |
 | Database | SQLAlchemy + SQLite (local) / PostgreSQL (production) |
 
+## Production
+
+Two environments, built from the same repo and `Dockerfile`. They differ only in their environment variables (`DATABASE_URL`, `ADMIN_PASSWORD`).
+
+| | Dev (internal checks) | Prod (users) |
+|---|---|---|
+| Hosting | [Render](https://render.com) web service (Docker) | [Render](https://render.com) web service (Docker) |
+| Git branch | `main` | `prod` |
+| Deploys | every push to `main`, after CI passes | when `main` is promoted to `prod` (`git push origin main:prod`), after CI passes |
+| Database | [Neon](https://neon.tech) PostgreSQL 18, branch `dev` | [Neon](https://neon.tech) PostgreSQL 18, production branch |
+
+- **CI**: GitHub Actions runs the backend tests on SQLite and PostgreSQL 18, and the frontend test/lint/build, on every push and PR. Render deploys only after these checks pass.
+- **Container registry**: on `main`, CI also builds the Docker image and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases). Render doesn't deploy from these images yet; it builds from the `Dockerfile` itself.
+- The app version at the bottom of the list screen shows which version each environment runs.
+
 ## Repository layout
 
 ```
