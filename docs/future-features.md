@@ -110,6 +110,14 @@ main push → GitHub Actions: 테스트 → 이미지 빌드 → 태그(sha-<커
 - 문제가 생기면 Render 서비스 소스를 다시 Git 저장소로 되돌리면 지금 방식으로 돌아갑니다.
 - 더 작은 대안: Dockerfile 베이스 이미지를 `python:3.14-slim@sha256:...`처럼 digest로 고정하면 "다시 빌드하면 달라지는" 문제는 많이 줄어듭니다. 다만 빌드를 두 번 하는 구조는 그대로입니다.
 
+### 7. 이미지 빌드 캐시 추가 — ★☆☆
+
+`ci.yml`의 `image` job은 매번 처음부터 빌드합니다 (`npm ci`, `uv sync`, 프론트엔드 빌드까지 전부). 의존성이 바뀌지 않았으면 그 단계는 이전 결과를 다시 쓸 수 있어서, 캐시를 붙이면 빌드가 빨라집니다.
+
+- 방법: `docker buildx`의 레지스트리 캐시 (`--cache-from`/`--cache-to type=registry,ref=ghcr.io/karolline/mongle-spoon:buildcache,mode=max`). 캐시도 GHCR에 이미지처럼 저장되어 따로 가입하거나 설정할 곳이 없습니다. 이를 쓰려면 job에서 `docker buildx create --use`로 빌더를 하나 만들어야 합니다.
+- 다른 방법: `docker/build-push-action` 같은 공식 액션과 GitHub Actions 캐시(`type=gha`). 설정은 더 짧지만 외부 액션(의존성)이 늘어납니다.
+- 빌드 시간이 거슬릴 때 하면 됩니다. 캐시는 속도만 바꾸고 결과 이미지는 바꾸지 않습니다.
+
 ## 추천 순서
 
 1 → 2 → 3. DB 구조를 바꾸는 작업은 dev DB에서 먼저 시험해 봅니다. 1번은 마이그레이션을 갖출 좋은 기회이고, 2번과 3번에서도 어차피 필요합니다.
