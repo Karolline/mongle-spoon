@@ -11,8 +11,13 @@ const { version } = JSON.parse(
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // The app version from package.json, shown at the bottom of the list screen.
-  define: { __APP_VERSION__: JSON.stringify(version) },
+  // The app version from package.json and the git commit (the Docker
+  // GIT_COMMIT build arg; unset in local development), shown at the bottom of
+  // the list screen.
+  define: {
+    __APP_VERSION__: JSON.stringify(version),
+    __APP_COMMIT__: JSON.stringify(process.env.GIT_COMMIT ?? ""),
+  },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

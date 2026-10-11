@@ -13,3 +13,6 @@ interface ImportMeta {
 
 /** The app version from package.json (see docs/versioning.md), injected by vite.config.ts. */
 declare const __APP_VERSION__: string;
+
+/** The git commit the app was built from, or "" in local development. Injected by vite.config.ts. */
+declare const __APP_COMMIT__: string;

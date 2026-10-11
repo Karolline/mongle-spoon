@@ -14,6 +14,9 @@ RUN npm ci
 COPY frontend/ ./
 # Same origin as the backend, so the API is just /api.
 ENV VITE_API_BASE_URL=/api
+# The commit shown next to the version on the list screen (CI passes it).
+# Declared here, after npm ci, so a new commit doesn't reinstall packages.
+ARG GIT_COMMIT=""
 RUN npm run build
 
 # --- Stage 2: backend + frontend build -------------------------------------

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { formatAppVersion } from "@/lib/appVersion";
 import { ApiError } from "@/services/errors";
 import {
   MOCK_PASSWORD,
@@ -100,8 +101,10 @@ describe("RecipeListScreen", () => {
     render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
     await screen.findByText("소고기 애호박 미음");
     const version = screen.getByTestId("app-version");
-    expect(version).toHaveTextContent(`v${__APP_VERSION__}`);
-    expect(version.textContent).toMatch(/^v\d+\.\d+\.\d+$/);
+    expect(version).toHaveTextContent(
+      formatAppVersion(__APP_VERSION__, __APP_COMMIT__),
+    );
+    expect(version.textContent).toMatch(/^v\d+\.\d+\.\d+( \([0-9a-f]{7}\))?$/);
   });
 
   it("opens a recipe and triggers add", async () => {

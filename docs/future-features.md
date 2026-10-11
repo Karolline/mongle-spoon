@@ -58,7 +58,7 @@
 
 ### 6. 컨테이너 레지스트리로 빌드와 배포 분리 — ★★☆
 
-> **진행 상황 (2026-10-11):** 1, 3~10단계 완료. dev와 prod 모두 GHCR 이미지로 배포되고, 승격은 Actions → Promote to prod로 합니다. 남은 것: 2단계(앱 화면에 커밋 표시), `prod` 브랜치 정리(v1.0.3에 멈춰 있고 더 이상 아무것도 배포하지 않음).
+> **진행 상황 (2026-10-11):** 1~10단계 완료. dev와 prod 모두 GHCR 이미지로 배포되고, 승격은 Actions → Promote to prod로 합니다. 남은 것: `prod` 브랜치 정리(v1.0.3에 멈춰 있고 더 이상 아무것도 배포하지 않음).
 
 지금은 Render가 배포할 때마다 Dockerfile로 이미지를 빌드합니다. 이것을 GitHub Actions가 이미지를 **한 번만** 빌드해 레지스트리에 올리고, Render(dev, prod)는 그 이미지를 받아서 실행만 하도록 바꿉니다. dev와 prod는 같은 이미지를 쓰고, 다른 것은 Render 환경변수(`DATABASE_URL`, `ADMIN_PASSWORD`)뿐입니다.
 

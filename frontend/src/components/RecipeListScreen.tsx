@@ -9,6 +9,7 @@ import {
 } from "@/services";
 import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
+import { formatAppVersion } from "@/lib/appVersion";
 import { relativeKo } from "@/lib/format";
 
 /**
@@ -207,7 +208,7 @@ export function RecipeListScreen({
         data-testid="app-version"
         className="mt-10 text-center font-mono text-[10px] tracking-[0.16em] text-ink-faint"
       >
-        v{__APP_VERSION__}
+        {formatAppVersion(__APP_VERSION__, __APP_COMMIT__)}
       </p>
 
       <button
