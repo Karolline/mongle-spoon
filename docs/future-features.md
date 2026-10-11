@@ -80,21 +80,29 @@ main push → GitHub Actions: 테스트 → 이미지 빌드 → 태그(sha-<커
 
 시작 전에 정할 것:
 
-- **GHCR 이미지 공개 여부**: 처음 push한 이미지는 기본이 비공개입니다. 비공개로 두면 Render 워크스페이스 설정에 GHCR 토큰(`read:packages`)을 등록해야 합니다. 공개로 바꾸면 토큰이 필요 없습니다. 이미지에는 비밀번호나 DB 주소가 들어 있지 않습니다.
-- **승격할 때 "dev가 지금 쓰는 이미지"를 어떻게 찾을지**: (가) 승격 워크플로에 태그(`sha-<커밋>`)를 직접 입력, (나) main 빌드 때마다 `dev` 태그도 붙여 두고 승격 때 그 digest를 prod에 전달, (다) Render API로 dev 서비스의 현재 이미지를 조회 (Render API 키 필요).
-- **`prod` 브랜치의 역할**: 지금은 `prod` 브랜치가 "prod에 배포된 것"을 나타냅니다. 바뀐 뒤에는 이미지 태그가 그 역할을 합니다. 브랜치를 없앨지, 승격 기록용으로 남길지 정합니다.
+- **GHCR 이미지 공개 여부** → **결정: 공개.** 저장소가 이미 공개라서 이미지를 공개해도 새로 드러나는 것이 없고, Render에 GHCR 토큰을 등록할 필요가 없습니다. 이미지에는 비밀번호나 DB 주소가 들어 있지 않습니다 (`.dockerignore`가 `*.db`, `.env`를 제외). 앞으로도 비밀 정보가 이미지에 들어가지 않게 주의합니다.
+- **승격할 때 "dev가 지금 쓰는 이미지"를 어떻게 찾을지** → **결정: (가)+(나).** main 빌드 때마다 `sha-<커밋>` 태그와 함께 `dev` 태그도 붙입니다. 승격 워크플로에는 태그 입력칸이 있습니다.
+  - 비우면: `dev` 태그를 digest로 고정해 prod에 전달하고, 그 이미지가 어느 커밋(`sha-...`)인지 실행 로그에 표시합니다.
+  - 적으면: 적은 태그(예: `sha-6e10ccd`)를 그대로 prod에 전달합니다. 특정 버전을 올리거나 롤백할 때 씁니다.
+  - 주의: `dev` 태그는 "dev가 실행 중인 이미지"가 아니라 "마지막으로 빌드한 이미지"입니다. 확인하는 사이에 main에 push했거나 dev 배포가 실패했다면 둘이 다를 수 있으니, 로그의 커밋과 dev 화면의 커밋을 비교합니다.
+  - (다) Render API로 조회하는 방법은 API 키를 하나 더 관리해야 해서 쓰지 않습니다.
+- **dev/prod에 어떤 커밋이 올라가 있는지 보기** → **결정: 둘 다 만듭니다.**
+  - GitHub Environments: dev 배포 job과 승격 job에 `environment: dev` / `environment: prod`를 붙입니다. 저장소 첫 화면 오른쪽 **Deployments**에서 환경별 최근 배포 커밋을 한눈에 봅니다. (GitHub가 Render에 배포를 요청한 기록이라, Render 배포가 실패했으면 실제와 다를 수 있습니다.)
+  - 앱 화면에 커밋 표시: 이미지 빌드 때 커밋 해시를 넣고, 목록 화면 아래 버전 옆에 보여 줍니다 (예: `v1.0.3 (6e10ccd)`). 실제로 실행 중인 코드를 보여 주므로 가장 정확하고, 이 해시를 승격 입력칸에 그대로 쓸 수 있습니다.
+- **`prod` 브랜치의 역할** (아직 안 정함): 지금은 `prod` 브랜치가 "prod에 배포된 것"을 나타냅니다. 바뀐 뒤에는 이미지 태그가 그 역할을 합니다. 브랜치를 없앨지, 승격 기록용으로 남길지(승격 워크플로가 `prod` 브랜치도 그 커밋으로 옮김) 정합니다.
 
 단계 (순서대로):
 
 1. 위의 "시작 전에 정할 것"을 정합니다.
-2. GitHub Actions에 빌드 job 추가: 테스트 job들이 통과한 뒤(`needs`), main push일 때만 이미지를 빌드해 `ghcr.io/<계정>/mongle-spoon:sha-<커밋>`으로 push. 릴리스 때는 `vX.Y.Z` 태그도 붙입니다. 이 단계에서는 아직 Render를 건드리지 않습니다.
-3. main에 push해서 GHCR에 이미지가 올라가는지 확인합니다 (Packages 탭). 공개로 하기로 했다면 여기서 공개로 바꾸고, 비공개라면 Render에 GHCR 토큰을 등록합니다.
-4. Render dev 서비스에서 Deploy Hook URL을 복사해 GitHub 저장소 Secret(예: `RENDER_DEV_DEPLOY_HOOK`)으로 저장합니다.
-5. Render dev 서비스의 소스를 Git 저장소에서 GHCR 이미지로 바꿉니다. 바꾸는 즉시 배포되므로 3번에서 이미지가 이미 올라가 있어야 합니다. 앱이 정상인지, 목록 화면 아래 버전이 맞는지 확인합니다.
-6. 빌드 job 끝에 dev Deploy Hook 호출 추가 (`imgURL`로 방금 빌드한 태그 지정). main에 push해서 테스트 → 빌드 → dev 배포가 자동으로 이어지는지 확인합니다.
-7. prod Deploy Hook URL을 Secret(예: `RENDER_PROD_DEPLOY_HOOK`)으로 저장하고, 수동 실행(`workflow_dispatch`) 승격 워크플로를 만듭니다. dev가 쓰는 이미지를 찾아(1번에서 정한 방법) prod Deploy Hook에 전달합니다. 이 워크플로에는 빌드 단계가 없습니다.
-8. Render prod 서비스의 소스를 GHCR 이미지로 바꿉니다. 이때는 dev에서 확인한 태그를 지정합니다. 그다음 승격 워크플로를 한 번 실행해 봅니다.
-9. 문서 정리: `AGENTS.md`의 Deployment 섹션(승격 방법, `prod` 브랜치 역할), `ci.yml` 상단 주석, 필요하면 `README.md`. 정한 대로 `prod` 브랜치를 정리합니다.
+2. 앱 화면에 커밋 표시: Dockerfile이 빌드 인자로 커밋 해시를 받아 이미지에 넣고, 목록 화면 아래 버전 옆에 보여 줍니다. 해시가 없으면(로컬 개발) 버전만 보여 줍니다. 테스트를 함께 작성합니다.
+3. GitHub Actions에 빌드 job 추가: 테스트 job들이 통과한 뒤(`needs`), main push일 때만 이미지를 빌드해 `ghcr.io/<계정>/mongle-spoon:sha-<커밋>`과 `:dev` 태그로 push (커밋 해시를 빌드 인자로 전달). 릴리스 때는 `vX.Y.Z` 태그도 붙입니다. 이 단계에서는 아직 Render를 건드리지 않습니다.
+4. main에 push해서 GHCR에 이미지가 올라가는지 확인합니다 (Packages 탭). 여기서 이미지를 공개로 바꿉니다.
+5. Render dev 서비스에서 Deploy Hook URL을 복사해 GitHub 저장소 Secret(예: `RENDER_DEV_DEPLOY_HOOK`)으로 저장합니다.
+6. Render dev 서비스의 소스를 Git 저장소에서 GHCR 이미지로 바꿉니다. 바꾸는 즉시 배포되므로 4번에서 이미지가 이미 올라가 있어야 합니다. 앱이 정상인지, 목록 화면 아래 버전과 커밋이 맞는지 확인합니다.
+7. 빌드 job 끝에 dev Deploy Hook 호출 추가 (`imgURL`로 방금 빌드한 `sha-<커밋>` 태그 지정, job에 `environment: dev`). main에 push해서 테스트 → 빌드 → dev 배포가 자동으로 이어지는지, 저장소 첫 화면 Deployments에 dev가 보이는지 확인합니다.
+8. prod Deploy Hook URL을 Secret(예: `RENDER_PROD_DEPLOY_HOOK`)으로 저장하고, 수동 실행(`workflow_dispatch`) 승격 워크플로를 만듭니다. 태그 입력칸(비우면 `dev`)으로 이미지를 정해 digest로 고정하고, 어느 커밋인지 로그에 표시한 뒤 prod Deploy Hook에 전달합니다. job에 `environment: prod`. 이 워크플로에는 빌드 단계가 없습니다.
+9. Render prod 서비스의 소스를 GHCR 이미지로 바꿉니다. 이때는 dev에서 확인한 태그를 지정합니다. 그다음 승격 워크플로를 한 번 실행해 보고, Deployments에 prod가 보이는지 확인합니다.
+10. 문서 정리: `AGENTS.md`의 Deployment 섹션(승격 방법, `prod` 브랜치 역할), `ci.yml` 상단 주석, 필요하면 `README.md`. 정한 대로 `prod` 브랜치를 정리합니다.
 
 주의:
 
@@ -106,4 +114,4 @@ main push → GitHub Actions: 테스트 → 이미지 빌드 → 태그(sha-<커
 
 1 → 2 → 3. DB 구조를 바꾸는 작업은 dev DB에서 먼저 시험해 봅니다. 1번은 마이그레이션을 갖출 좋은 기회이고, 2번과 3번에서도 어차피 필요합니다.
 
-4번은 기능과 관계없어서 언제 해도 됩니다. 다만 1번(DB 구조 변경)처럼 dev에서 확인한 뒤 prod에 올리는 작업이 많아지기 전에 해 두면, prod에 dev와 똑같은 이미지가 올라간다는 보장을 받을 수 있습니다.
+6번은 기능과 관계없어서 언제 해도 됩니다. 다만 1번(DB 구조 변경)처럼 dev에서 확인한 뒤 prod에 올리는 작업이 많아지기 전에 해 두면, prod에 dev와 똑같은 이미지가 올라간다는 보장을 받을 수 있습니다.
