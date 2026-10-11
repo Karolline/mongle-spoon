@@ -14,8 +14,8 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 
 할 일 (순서대로):
 
-1. **의존성 추가 확인**: `alembic`은 새 의존성이므로 먼저 확인받고 `uv add alembic`.
-2. **Alembic 설정**: `backend/`에서 `uv run alembic init migrations`. `migrations/env.py`가 `app.db`의 `database_url()`과 `normalize_url()`로 주소를 정하고, `target_metadata = Base.metadata`를 쓰게 합니다 (자동 생성이 모델과 비교할 수 있도록). `alembic.ini`에는 DB 주소를 적지 않습니다. SQLite에서도 나중에 컬럼 삭제/변경이 되도록 `render_as_batch=True`를 켭니다.
+1. (완료) **의존성 추가 확인**: `alembic`은 새 의존성이므로 먼저 확인받고 `uv add alembic`.
+2. (완료) **Alembic 설정**: `backend/`에서 `uv run alembic init migrations`. `migrations/env.py`가 `app.db`의 `database_url()`과 `normalize_url()`로 주소를 정하고, `target_metadata = Base.metadata`를 쓰게 합니다 (자동 생성이 모델과 비교할 수 있도록). `alembic.ini`에는 DB 주소를 적지 않습니다. SQLite에서도 나중에 컬럼 삭제/변경이 되도록 `render_as_batch=True`를 켭니다.
 3. **출발점(baseline) 마이그레이션**: 지금 구조(`recipes`, `ingredients`, `recipe_meal_times`)를 그대로 만드는 첫 마이그레이션을 만듭니다. 빈 DB에 `alembic revision --autogenerate`로 초안을 만들고 읽어서 확인합니다.
 4. **`make_engine()`에서 `create_all` 제거**: 테이블은 이제 Alembic만 만듭니다. 그대로 두면 빈 DB에서 `create_all`이 테이블을 먼저 만들어서 baseline 마이그레이션이 "이미 있음"으로 실패합니다. 테이블이 필요한 곳은 각각 처리합니다.
    - 테스트: `conftest.py`의 `fresh_engine()`은 이미 `create_all`을 직접 부르므로 그대로 둡니다. `make_engine()`만 쓰는 테스트(`test_copy_db.py`, `test_store.py`의 파일 DB 테스트)는 테이블을 직접 만들게 고칩니다.
