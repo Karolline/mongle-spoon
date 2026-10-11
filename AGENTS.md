@@ -60,25 +60,27 @@ Frontend (run inside `frontend/`, requires Node.js 20.19+ or 22.12+):
 - `tests/unit/`: store-level tests. `tests/integration/`: HTTP endpoint tests and end-to-end workflow tests. `tests/compose/`: smoke tests against the running compose stack. New tests go in the matching folder; see [`docs/testing.md`](docs/testing.md).
 - `Dockerfile` (repo root): builds the frontend with Node, then a Python image running the backend with the frontend build. SQLite goes to `/data` (mount a volume) unless `DATABASE_URL` points elsewhere.
 - `docker-compose.yaml` (repo root): services `db` (PostgreSQL 18, on `127.0.0.1:5432`, volume `mongle-spoon-pgdata`) and `app` (the image, pointed at `db`). `docker compose up -d --build` `APP_PORT`, `DB_PORT` and `PGDATA_VOLUME` override ports and volume (the compose tests use this to stay off the dev data).
-- `.github/workflows/ci.yml`: on every push and PR, backend tests on SQLite and on PostgreSQL 18 (service container), and frontend test/lint/build. On `main`, after those pass, the `image` job builds the Docker image once and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`) as `sha-<short commit>` and `dev`, passing the commit as the `GIT_COMMIT` build arg. Then `deploy-dev` calls the Render dev Deploy Hook (secret `RENDER_DEV_DEPLOY_HOOK`) with that `sha-` tag, under the GitHub environment `dev`. A pushed `vX.Y.Z` git tag adds that tag to the image already built from its commit (never a rebuild). `.github/workflows/promote.yml` (manual, Actions tab): resolves an image tag (empty input means `dev`) to a digest, calls the Render prod Deploy Hook (secret `RENDER_PROD_DEPLOY_HOOK`) with it, and records a `prod` deployment for the image's commit (read from its `org.opencontainers.image.revision` label). Not in use until the Render prod service runs the image. `.github/workflows/compose.yml` runs `tests/compose` only when image or compose inputs change (keep its `paths` list in sync). Render deploys only after these checks pass (see Deployment).
+- `.github/workflows/ci.yml`: on every push and PR, backend tests on SQLite and on PostgreSQL 18 (service container), and frontend test/lint/build. On `main`, after those pass, the `image` job builds the Docker image once and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`) as `sha-<short commit>` and `dev`, passing the commit as the `GIT_COMMIT` build arg. Then `deploy-dev` calls the Render dev Deploy Hook (secret `RENDER_DEV_DEPLOY_HOOK`) with that `sha-` tag, under the GitHub environment `dev`. A pushed `vX.Y.Z` git tag adds that tag to the image already built from its commit (never a rebuild). `.github/workflows/promote.yml` (manual, Actions tab): resolves an image tag (empty input means `dev`) to a digest, calls the Render prod Deploy Hook (secret `RENDER_PROD_DEPLOY_HOOK`) with it, and records a `prod` deployment for the image's commit (read from its `org.opencontainers.image.revision` label). `.github/workflows/compose.yml` runs `tests/compose` only when image or compose inputs change (keep its `paths` list in sync). See Deployment.
 - `openapi.yaml` (repo root) is the contract. Keep it and the backend in sync.
 - Versions: one `MAJOR.MINOR.PATCH` for the whole app, in several files, tagged `vX.Y.Z` in git, with changes listed in `CHANGELOG.md`. See [`docs/versioning.md`](docs/versioning.md). Bump the version only when the user asks for a release.
 
 ## Deployment
 
-Two environments on Render, built from the same repo and Dockerfile. They differ only in Render environment variables (`DATABASE_URL`, `ADMIN_PASSWORD`). Moving both to one image built by CI is in progress ([`docs/future-features.md`](docs/future-features.md) item 6): dev is done, prod still builds from git.
+Two environments on Render, both running the Docker image CI builds once and pushes to GHCR (`ghcr.io/karolline/mongle-spoon`). They differ only in Render environment variables (`DATABASE_URL`, `ADMIN_PASSWORD`). Render builds nothing and watches no branch: a service deploys when its Deploy Hook is called.
 
 | | Dev (internal checks) | Prod (users) |
 |---|---|---|
-| Git branch | `main` | `prod` |
-| Render source | GHCR image (`ghcr.io/karolline/mongle-spoon`), deployed by CI's Deploy Hook call | the `prod` branch, built by Render |
-| Deploys | every push to `main`, after CI passes | only when the user promotes `main` to `prod`, after CI passes |
+| Deploys | every push to `main`, after CI passes (`deploy-dev` in `ci.yml`) | only when the user runs the "Promote to prod" workflow (`promote.yml`) |
+| Image | `sha-<commit>` of that push | the tag given when promoting (empty means `dev`, the latest `main` build), pinned to its digest |
 | Database | Neon branch `dev` | Neon production branch |
 
-- Promote: after checking dev, the user runs `git push origin main:prod`. This is a fast-forward: `prod` moves to the commit already tested on dev, and no new commit is made. Never commit to `prod` directly or force-push it; if the push is rejected, find out why.
+- Promote: after checking dev, the user runs Actions → Promote to prod → Run workflow (from `main`), usually with the tag empty. The run summary shows which commit was promoted. The `dev` tag is the latest `main` build, not necessarily what was checked: if `main` was pushed again after checking, or a dev deploy failed, enter the checked `sha-<commit>` instead. For a release, enter `vX.Y.Z`.
+- Roll back: run the same workflow with an older tag (`sha-<commit>` or `vX.Y.Z`).
+- Which commit each environment runs: Deployments on the GitHub repo page (it records what was sent to Render, not whether Render's deploy succeeded; Render's Events show that), and the app version at the bottom of the list screen.
+- Don't redeploy from the Render dashboard (Manual Deploy): it may use the image URL saved in the service settings, which is the tag from when the source was switched, not the latest. Rerun the CI run or the promotion instead.
+- The `prod` branch no longer deploys anything. It stays at v1.0.3 until the user decides what to do with it ([`docs/future-features.md`](docs/future-features.md) item 6). Don't push to it.
 - Never point dev and prod at the same database.
 - A schema change has to reach both databases (`make_engine()` only creates missing tables).
-- The app version shown at the bottom of the list screen tells which version each environment runs.
 
 ## Rules
 

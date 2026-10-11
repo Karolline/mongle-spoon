@@ -18,18 +18,17 @@ Frontend and FastAPI backend are connected over HTTP, and recipes are stored thr
 
 ## Production
 
-Two environments, built from the same repo and `Dockerfile`. They differ only in their environment variables (`DATABASE_URL`, `ADMIN_PASSWORD`).
+Two environments, running the same Docker image. They differ only in their environment variables (`DATABASE_URL`, `ADMIN_PASSWORD`).
 
 | | Dev (internal checks) | Prod (users) |
 |---|---|---|
-| Hosting | [Render](https://render.com) web service (Docker) | [Render](https://render.com) web service (Docker) |
-| Git branch | `main` | `prod` |
-| Render source | the GHCR image CI built | the `prod` branch (Render builds it) |
-| Deploys | every push to `main`, after CI passes | when `main` is promoted to `prod` (`git push origin main:prod`), after CI passes |
+| Hosting | [Render](https://render.com) web service (image from GHCR) | [Render](https://render.com) web service (image from GHCR) |
+| Deploys | every push to `main`, after CI passes | when a dev-tested image is promoted (Actions → Promote to prod) |
 | Database | [Neon](https://neon.tech) PostgreSQL 18, branch `dev` | [Neon](https://neon.tech) PostgreSQL 18, production branch |
 
 - **CI**: GitHub Actions runs the backend tests on SQLite and PostgreSQL 18, and the frontend test/lint/build, on every push and PR. Nothing deploys unless these checks pass.
-- **Container registry**: on `main`, CI also builds the Docker image and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases), then calls the Render dev service's Deploy Hook to run it. Prod still builds from the `Dockerfile` on Render.
+- **Container registry**: on `main`, CI builds the Docker image once and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases), then calls the Render dev service's Deploy Hook to run it. Promoting sends that same image to prod, so prod runs exactly what was checked on dev.
+- **Deployments** on the GitHub repo page shows which commit each environment last received.
 - The app version at the bottom of the list screen shows which version each environment runs.
 
 ## Repository layout

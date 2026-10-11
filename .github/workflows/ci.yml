@@ -3,11 +3,8 @@
 # After the tests pass on main, the image job builds the Docker image once and
 # pushes it to GHCR as sha-<commit> and dev, and deploy-dev tells the Render dev
 # service to run it. A vX.Y.Z tag is added to that same image, never rebuilt
-# (see the image and release-tag jobs).
-#
-# The Render prod service still builds from the prod branch, only after these
-# checks pass (Auto-Deploy: "After CI Checks Pass"). Promoting main to prod
-# reruns them on the same commit.
+# (see the image and release-tag jobs). Prod gets an image only through
+# promote.yml.
 
 name: CI
 
