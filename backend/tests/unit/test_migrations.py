@@ -94,6 +94,7 @@ def test_a_database_from_before_alembic_can_be_stamped_and_upgraded(url):
     assert recipe.name == "감자 미음"
     assert recipe.meal_times == ["breakfast"]
     assert recipe.pinned_at is None
+    assert recipe.last_made_on is None
     engine.dispose()
 
 

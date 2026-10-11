@@ -7,9 +7,10 @@ but PostgreSQL enforces them, so a length limit would only fail in production.
 """
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import (
+    Date,
     DateTime,
     Engine,
     ForeignKey,
@@ -63,6 +64,9 @@ class RecipeRow(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
     # When the recipe was pinned to the top of the list; None when not pinned.
     pinned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # The day the recipe was last cooked (a calendar date, no time or zone);
+    # None when never recorded.
+    last_made_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     ingredients: Mapped[list["IngredientRow"]] = relationship(
         order_by="IngredientRow.position",

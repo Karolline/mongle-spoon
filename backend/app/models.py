@@ -1,6 +1,6 @@
 """API schemas. JSON field names are camelCase to match the frontend types."""
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -64,3 +64,10 @@ class Recipe(ApiModel):
     created_at: datetime
     updated_at: datetime
     pinned_at: datetime | None = None
+    last_made_on: date | None = None
+
+
+class LastMadeInput(ApiModel):
+    """The day a recipe was cooked. The client picks it, in the user's own time zone."""
+
+    last_made_on: date

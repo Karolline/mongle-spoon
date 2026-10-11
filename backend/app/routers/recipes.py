@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.auth import WRITE_ERRORS, require_access, require_write
-from app.models import MealTime, Recipe, RecipeInput
+from app.models import LastMadeInput, MealTime, Recipe, RecipeInput
 from app.store import RecipeStore
 
 router = APIRouter(
@@ -95,6 +95,34 @@ def pin_recipe(recipe_id: str, store: StoreDep) -> Recipe:
 )
 def unpin_recipe(recipe_id: str, store: StoreDep) -> Recipe:
     recipe = store.unpin(recipe_id)
+    if recipe is None:
+        raise _not_found()
+    return recipe
+
+
+@router.put(
+    "/{recipe_id}/last-made",
+    response_model=Recipe,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
+    operation_id="setLastMade",
+)
+def set_last_made(recipe_id: str, data: LastMadeInput, store: StoreDep) -> Recipe:
+    recipe = store.set_last_made(recipe_id, data.last_made_on)
+    if recipe is None:
+        raise _not_found()
+    return recipe
+
+
+@router.delete(
+    "/{recipe_id}/last-made",
+    response_model=Recipe,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
+    operation_id="clearLastMade",
+)
+def clear_last_made(recipe_id: str, store: StoreDep) -> Recipe:
+    recipe = store.set_last_made(recipe_id, None)
     if recipe is None:
         raise _not_found()
     return recipe

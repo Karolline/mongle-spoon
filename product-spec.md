@@ -10,8 +10,8 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 - One person (me) manages the recipes. There are no user accounts.
 - Anyone with the URL can view the app. The URL is shared only with family.
-- Adding, editing, pinning, and deleting recipes needs a single shared password, set on the server.
-  - The password is asked for the first time a write action is used ([+ 추가], [수정], [삭제], [고정]/[고정 해제], or saving the form), then remembered in that browser.
+- Adding, editing, pinning, recording when a recipe was made, and deleting recipes needs a single shared password, set on the server.
+  - The password is asked for the first time a write action is used ([+ 추가], [수정], [삭제], [고정]/[고정 해제], [오늘 만들었어요] or another day, [기록 지우기], or saving the form), then remembered in that browser.
   - A [잠금] button on the list screen forgets the remembered password.
   - Viewing, searching, and filtering never need the password.
 
@@ -34,8 +34,9 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 ## Finding recipes
 
-- **List:** pinned recipes first (most recently pinned first), then the rest sorted by most recently updated first.
+- **List:** pinned recipes first (most recently pinned first), then the rest sorted by the day they were last made (most recent first). Recipes never made come last. Recipes made on the same day, and recipes never made, are sorted by most recently updated first.
 - **Pin:** any number of recipes can be pinned to the top of the list (e.g. what to cook today). Pinning and unpinning don't change the recipe's "updated" time.
+- **Last made:** each recipe can record the day it was last made (a date, no time). [오늘 만들었어요] records today, in the phone's time zone; another day (e.g. yesterday) can be picked instead, but not a future day. Recording a day replaces the previous one, so an earlier day fixes a mistake, and [기록 지우기] removes it. Recording doesn't change the recipe's "updated" time.
 - **Search:** one search box that matches both recipe names and ingredient names.
 - **Filter:** meal time buttons [전체] [아침] [점심·저녁] [간식]. The filter works together with search. Pinned recipes only show when they match the search and filter, and then come first. Tapping the active meal time button again clears the filter (same as [전체]).
 
@@ -43,17 +44,17 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 Three screens:
 
-1. **List (home):** search box, meal time filter buttons, and recipe cards (name, meal times, servings), plus an [+ 추가] button. Each card has a pin button; a pinned card shows a 고정 badge. Shows a message when there are no recipes or no search results.
+1. **List (home):** search box, meal time filter buttons, and recipe cards (name, meal times, servings), plus an [+ 추가] button. Each card has a pin button; a pinned card shows a 고정 badge. A card shows when the recipe was last made (e.g. "오늘 만듦", "3일 전 만듦"), if it was. Shows a message when there are no recipes or no search results.
    - The count in the top right is the number of recipes currently shown (after search and filter).
    - The app version (e.g. `v1.0.2`) is shown in small text at the bottom, so each deployment shows which version it runs.
    - While the first load is in progress, it shows "레시피를 불러오는 중이에요…" instead of a count or the empty message. If loading fails, it retries automatically a few times (about 30 seconds in total, e.g. while a free host wakes up), then shows "서버에 연결 중이에요" with a [다시 시도] button.
-2. **Detail:** all fields of one recipe, with [고정] (or [고정 해제]), [수정] and [삭제] buttons. Deleting asks for confirmation.
+2. **Detail:** all fields of one recipe, with [고정] (or [고정 해제]), [수정] and [삭제] buttons. A "마지막으로 만든 날" section shows the day it was last made (or that it hasn't been recorded), with [오늘 만들었어요], a date picker for another day, and [기록 지우기]. Deleting asks for confirmation.
 3. **Add / edit form:** one screen for both. Ingredients are added and removed row by row. The recipe cannot be saved without a name.
 
 ## Out of scope (later)
 
 - Photos
-- Cooking history, and tracking how long food has been stored in the fridge or freezer (a larger feature, planned separately)
+- Cooking history (every day a recipe was made; only the last day is kept), and tracking how long food has been stored in the fridge or freezer (a larger feature, planned separately)
 - User accounts, per-person permissions
 - Sort options (by name, etc.)
 - Baby food stage, baby's age in months, cooking time, allergens, baby's reaction

@@ -2,7 +2,7 @@
 
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import Engine, case, exists, func, select
 from sqlalchemy.orm import sessionmaker
@@ -44,11 +44,14 @@ class RecipeStore:
                 )
             )
         # Pinned recipes first (most recently pinned first), then the rest by
-        # updated_at. NULLs sort differently per database, so pinned/unpinned
-        # is an explicit CASE instead of relying on NULL ordering.
+        # the day they were last made, never-made ones last, then updated_at.
+        # NULLs sort differently per database, so "has a value" is an explicit
+        # CASE instead of relying on NULL ordering.
         stmt = stmt.order_by(
             case((RecipeRow.pinned_at.is_(None), 1), else_=0),
             RecipeRow.pinned_at.desc(),
+            case((RecipeRow.last_made_on.is_(None), 1), else_=0),
+            RecipeRow.last_made_on.desc(),
             RecipeRow.updated_at.desc(),
             RecipeRow.id,
         )
@@ -95,6 +98,15 @@ class RecipeStore:
             row.pinned_at = None
             return _to_model(row)
 
+    def set_last_made(self, recipe_id: str, day: date | None) -> Recipe | None:
+        """Record the day the recipe was last made (None clears it). updated_at is kept."""
+        with self._sessions.begin() as session:
+            row = session.get(RecipeRow, recipe_id)
+            if row is None:
+                return None
+            row.last_made_on = day
+            return _to_model(row)
+
     def delete(self, recipe_id: str) -> None:
         """Idempotent: deleting an unknown id is a no-op."""
         with self._sessions.begin() as session:
@@ -116,6 +128,7 @@ class RecipeStore:
                     created_at=recipe.created_at,
                     updated_at=recipe.updated_at,
                     pinned_at=recipe.pinned_at,
+                    last_made_on=recipe.last_made_on,
                 )
                 _fill_row(row, recipe)
                 session.add(row)
@@ -154,6 +167,7 @@ def _to_model(row: RecipeRow) -> Recipe:
         created_at=row.created_at,
         updated_at=row.updated_at,
         pinned_at=row.pinned_at,
+        last_made_on=row.last_made_on,
     )
 
 

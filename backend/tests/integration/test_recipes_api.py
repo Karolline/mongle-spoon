@@ -27,6 +27,7 @@ RECIPE_KEYS = {
     "createdAt",
     "updatedAt",
     "pinnedAt",
+    "lastMadeOn",
 }
 
 
@@ -64,6 +65,7 @@ def test_create_returns_201_with_full_recipe(empty_client: TestClient) -> None:
     assert body["mealTimes"] == ["breakfast"]
     assert body["createdAt"] == body["updatedAt"]
     assert body["pinnedAt"] is None
+    assert body["lastMadeOn"] is None
 
 
 def test_create_with_only_name_fills_defaults(empty_client: TestClient) -> None:
@@ -141,12 +143,44 @@ def test_pin_and_unpin(client: TestClient) -> None:
     assert client.get("/api/recipes").json()[-1]["id"] == last["id"]
 
 
+def test_set_and_clear_last_made(client: TestClient) -> None:
+    last = client.get("/api/recipes").json()[-1]
+
+    res = client.put(
+        f"/api/recipes/{last['id']}/last-made", json={"lastMadeOn": "2026-10-11"}
+    )
+    assert res.status_code == 200
+    made = res.json()
+    assert made == {**last, "lastMadeOn": "2026-10-11"}
+    assert client.get("/api/recipes").json()[0] == made
+
+    res = client.delete(f"/api/recipes/{last['id']}/last-made")
+    assert res.status_code == 200
+    assert res.json() == last
+    assert client.get("/api/recipes").json()[-1]["id"] == last["id"]
+
+
+def test_last_made_must_be_a_date(client: TestClient) -> None:
+    recipe_id = client.get("/api/recipes").json()[0]["id"]
+    path = f"/api/recipes/{recipe_id}/last-made"
+    for body in (
+        {},
+        {"lastMadeOn": None},
+        {"lastMadeOn": "2026-13-01"},
+        {"lastMadeOn": "2026-10-11T09:00:00Z"},
+        {"lastMadeOn": "2026-10-11", "extra": 1},
+    ):
+        assert client.put(path, json=body).status_code == 422, body
+
+
 def test_unknown_id_returns_404(empty_client: TestClient) -> None:
     for res in (
         empty_client.get("/api/recipes/nope"),
         empty_client.put("/api/recipes/nope", json={"name": "x"}),
         empty_client.post("/api/recipes/nope/pin"),
         empty_client.delete("/api/recipes/nope/pin"),
+        empty_client.put("/api/recipes/nope/last-made", json={"lastMadeOn": "2026-10-11"}),
+        empty_client.delete("/api/recipes/nope/last-made"),
     ):
         assert res.status_code == 404
         assert res.json() == {"detail": "Recipe not found"}
@@ -184,6 +218,8 @@ def test_every_route_goes_through_require_access(store: RecipeStore) -> None:
         client.delete("/api/recipes/x"),
         client.post("/api/recipes/x/pin"),
         client.delete("/api/recipes/x/pin"),
+        client.put("/api/recipes/x/last-made", json={"lastMadeOn": "2026-10-11"}),
+        client.delete("/api/recipes/x/last-made"),
         client.post("/api/auth/verify"),
     ]
-    assert [r.status_code for r in responses] == [418] * 8
+    assert [r.status_code for r in responses] == [418] * 10

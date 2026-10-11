@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.models import Ingredient, MealTime, RecipeInput
 from app.store import RecipeStore
 
@@ -133,6 +135,71 @@ def test_update_keeps_pin(store: RecipeStore) -> None:
 def test_pin_unknown_id_returns_none(store: RecipeStore) -> None:
     assert store.pin("nope") is None
     assert store.unpin("nope") is None
+
+
+def test_recently_made_recipes_come_next_never_made_last(
+    seeded_store: RecipeStore,
+) -> None:
+    by_updated = seeded_store.list()
+    oldest, second_oldest = by_updated[-1], by_updated[-2]
+    seeded_store.set_last_made(oldest.id, date(2026, 9, 3))
+    seeded_store.set_last_made(second_oldest.id, date(2026, 9, 1))
+
+    result = seeded_store.list()
+    assert names(result[:2]) == [oldest.name, second_oldest.name]
+    # Never made: the usual updated_at order.
+    assert names(result[2:]) == names(by_updated[:-2])
+
+
+def test_pinned_recipes_still_come_before_recently_made(
+    seeded_store: RecipeStore,
+) -> None:
+    first, last = seeded_store.list()[0], seeded_store.list()[-1]
+    seeded_store.set_last_made(first.id, date(2026, 9, 3))
+    seeded_store.pin(last.id)
+
+    assert names(seeded_store.list()[:2]) == [last.name, first.name]
+
+
+def test_recipes_made_on_the_same_day_sort_by_updated_at(store: RecipeStore) -> None:
+    older = store.create(RecipeInput(name="감자 미음"))
+    newer = store.create(RecipeInput(name="당근 미음"))
+    for recipe in (newer, older):
+        store.set_last_made(recipe.id, date(2026, 9, 3))
+
+    assert names(store.list()) == ["당근 미음", "감자 미음"]
+
+
+def test_set_and_clear_last_made_keep_updated_at(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    assert created.last_made_on is None
+
+    made = store.set_last_made(created.id, date(2026, 9, 3))
+    assert made is not None
+    assert made.last_made_on == date(2026, 9, 3)
+    assert made.updated_at == created.updated_at
+    assert store.get(created.id) == made
+
+    # Any day can be recorded, also an earlier one (to fix a mistake).
+    earlier = store.set_last_made(created.id, date(2026, 8, 30))
+    assert earlier is not None and earlier.last_made_on == date(2026, 8, 30)
+
+    cleared = store.set_last_made(created.id, None)
+    assert cleared is not None
+    assert cleared.last_made_on is None
+    assert cleared.updated_at == created.updated_at
+
+
+def test_update_keeps_last_made(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    store.set_last_made(created.id, date(2026, 9, 3))
+    updated = store.update(created.id, RecipeInput(name="감자 당근 미음"))
+    assert updated is not None
+    assert updated.last_made_on == date(2026, 9, 3)
+
+
+def test_set_last_made_unknown_id_returns_none(store: RecipeStore) -> None:
+    assert store.set_last_made("nope", date(2026, 9, 3)) is None
 
 
 def test_delete_is_idempotent(store: RecipeStore) -> None:

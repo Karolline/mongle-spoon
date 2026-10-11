@@ -7,12 +7,14 @@ info:
     The contract the frontend services layer (`frontend/src/services/types.ts`,
     `RecipeService`) expects from the FastAPI backend.
 
-    - Reading is public. Creating, updating, pinning and deleting need the admin
+    - Reading is public. Creating, updating, pinning, recording when a recipe
+      was made and deleting need the admin
       password (the server's `ADMIN_PASSWORD`), sent as
       `Authorization: Bearer <password>`. When `ADMIN_PASSWORD` is unset,
       every write returns 503.
     - JSON field names are camelCase, matching the frontend types.
     - Timestamps are ISO 8601 strings in UTC (e.g. `2026-09-30T08:15:00.000Z`).
+      Calendar dates (`lastMadeOn`) are `YYYY-MM-DD`, with no time zone.
 servers:
   - url: http://localhost:8000/api
     description: Local development
@@ -24,7 +26,7 @@ security: []
 
 tags:
   - name: recipes
-    description: Baby food recipes (create, read, update, delete, pin, search, filter).
+    description: Baby food recipes (create, read, update, delete, pin, last made, search, filter).
   - name: auth
     description: Checking the admin password that protects writes.
 
@@ -36,7 +38,9 @@ paths:
       summary: List recipes
       description: |
         Returns pinned recipes first (by `pinnedAt`, most recently pinned
-        first), then the rest by `updatedAt`, most recent first.
+        first), then the rest by `lastMadeOn`, most recent first, with
+        recipes never made last. Ties (and never-made recipes) are sorted by
+        `updatedAt`, most recent first.
         `search` and `mealTime` combine with AND, and apply to pinned recipes
         too. With neither, all recipes are returned.
       parameters:
@@ -120,8 +124,9 @@ paths:
       operationId: updateRecipe
       summary: Replace a recipe
       description: |
-        Full replacement of every editable field. `id`, `createdAt` and
-        `pinnedAt` are kept; `updatedAt` is set to the current time.
+        Full replacement of every editable field. `id`, `createdAt`,
+        `pinnedAt` and `lastMadeOn` are kept; `updatedAt` is set to the
+        current time.
       security:
         - adminPassword: []
       requestBody:
@@ -201,6 +206,67 @@ paths:
       responses:
         "200":
           description: The unpinned recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /recipes/{recipeId}/last-made:
+    parameters:
+      - name: recipeId
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags: [recipes]
+      operationId: setLastMade
+      summary: Record the day a recipe was last made
+      description: |
+        Sets `lastMadeOn` to the given day, replacing the previous one (an
+        earlier day is allowed, to fix a mistake). The client picks the day
+        in the user's time zone. `updatedAt` does not change.
+      security:
+        - adminPassword: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LastMadeInput"
+      responses:
+        "200":
+          description: The updated recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [recipes]
+      operationId: clearLastMade
+      summary: Clear the day a recipe was last made
+      description: |
+        Sets `lastMadeOn` to null (also when it was already null).
+        `updatedAt` does not change.
+      security:
+        - adminPassword: []
+      responses:
+        "200":
+          description: The updated recipe.
           content:
             application/json:
               schema:
@@ -312,6 +378,7 @@ components:
         - createdAt
         - updatedAt
         - pinnedAt
+        - lastMadeOn
       properties:
         id:
           type: string
@@ -343,6 +410,10 @@ components:
           type: [string, "null"]
           format: date-time
           description: When the recipe was pinned to the top of the list; null when not pinned.
+        lastMadeOn:
+          type: [string, "null"]
+          format: date
+          description: The day the recipe was last made; null when never recorded.
       example:
         id: "1"
         name: 소고기 애호박 미음
@@ -356,6 +427,17 @@ components:
         createdAt: "2026-09-10T08:00:00Z"
         updatedAt: "2026-09-29T08:00:00Z"
         pinnedAt: null
+        lastMadeOn: "2026-10-11"
+
+    LastMadeInput:
+      type: object
+      additionalProperties: false
+      required: [lastMadeOn]
+      properties:
+        lastMadeOn:
+          type: string
+          format: date
+          example: "2026-10-11"
 
     Error:
       type: object
