@@ -132,9 +132,10 @@ def test_delete_removes_child_rows(store: RecipeStore) -> None:
 
 def test_data_persists_in_a_database_file(tmp_path) -> None:
     from app.db import make_engine
+    from tests.conftest import fresh_engine
 
     url = f"sqlite:///{tmp_path / 'recipes.db'}"
-    created = RecipeStore(engine=make_engine(url)).create(
+    created = RecipeStore(engine=fresh_engine(url)).create(
         RecipeInput(name="감자 미음", meal_times=[MealTime.BREAKFAST])
     )
     reopened = RecipeStore(engine=make_engine(url))

@@ -3,12 +3,20 @@
 Usage (inside backend/): uv run python -m app.seed
 """
 
-from app.db import database_url
+from sqlalchemy import inspect
+
+from app.db import database_url, make_engine
 from app.store import RecipeStore, seed
 
 
 def main() -> None:
-    store = RecipeStore()
+    engine = make_engine()
+    if not inspect(engine).has_table("recipes"):
+        raise SystemExit(
+            "The database has no tables yet. Create them first: "
+            "uv run python -m app.migrate"
+        )
+    store = RecipeStore(engine=engine)
     if not store.is_empty():
         print("Database already has recipes; nothing seeded.")
         return

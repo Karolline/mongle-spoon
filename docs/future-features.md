@@ -17,24 +17,25 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 1. (완료) **의존성 추가 확인**: `alembic`은 새 의존성이므로 먼저 확인받고 `uv add alembic`.
 2. (완료) **Alembic 설정**: `backend/`에서 `uv run alembic init migrations`. `migrations/env.py`가 `app.db`의 `database_url()`과 `normalize_url()`로 주소를 정하고, `target_metadata = Base.metadata`를 쓰게 합니다 (자동 생성이 모델과 비교할 수 있도록). `alembic.ini`에는 DB 주소를 적지 않습니다. SQLite에서도 나중에 컬럼 삭제/변경이 되도록 `render_as_batch=True`를 켭니다.
 3. (완료) **출발점(baseline) 마이그레이션**: 지금 구조(`recipes`, `ingredients`, `recipe_meal_times`)를 그대로 만드는 첫 마이그레이션을 만듭니다. 빈 DB에 `alembic revision --autogenerate`로 초안을 만들고 읽어서 확인합니다.
-4. **`make_engine()`에서 `create_all` 제거**: 테이블은 이제 Alembic만 만듭니다. 그대로 두면 빈 DB에서 `create_all`이 테이블을 먼저 만들어서 baseline 마이그레이션이 "이미 있음"으로 실패합니다. 테이블이 필요한 곳은 각각 처리합니다.
+4. (완료) **`make_engine()`에서 `create_all` 제거**: 테이블은 이제 Alembic만 만듭니다. 그대로 두면 빈 DB에서 `create_all`이 테이블을 먼저 만들어서 baseline 마이그레이션이 "이미 있음"으로 실패합니다. 테이블이 필요한 곳은 각각 처리합니다.
    - 테스트: `conftest.py`의 `fresh_engine()`은 이미 `create_all`을 직접 부르므로 그대로 둡니다. `make_engine()`만 쓰는 테스트(`test_copy_db.py`, `test_store.py`의 파일 DB 테스트)는 테이블을 직접 만들게 고칩니다.
    - `app/copy_db.py`: 대상 DB에 테이블이 있어야 하므로, 복사 전에 대상 DB에 `upgrade head`를 실행하게 합니다 (빈 DB를 만들고 바로 복사하는 흐름 유지).
-   - `app/seed.py`: 테이블이 없으면 "먼저 `alembic upgrade head`를 실행하라"는 메시지를 보여 줍니다.
-5. **실행 시 자동 적용**:
-   - Dockerfile: `migrations/`와 `alembic.ini`를 이미지에 복사하고, 시작 명령을 `alembic upgrade head`를 먼저 실행한 뒤 uvicorn을 실행하도록 바꿉니다. 실패하면 앱이 뜨지 않고 Render 배포가 실패로 표시됩니다 (이전 버전이 계속 서비스됨).
+   - `app/seed.py`: 테이블이 없으면 "먼저 `uv run python -m app.migrate`를 실행하라"는 메시지를 보여 줍니다.
+5. (완료) **실행 시 자동 적용**: 코드에서 실행하는 `app/migrate.py`(`uv run python -m app.migrate`)를 만들었습니다. 예전 테이블이 있는데 stamp되지 않은 DB는 적용하지 않고, 실행할 stamp 명령을 알려 줍니다.
+   - Dockerfile: `migrations/`와 `alembic.ini`를 이미지에 복사하고, 시작 명령을 `python -m app.migrate`를 먼저 실행한 뒤 uvicorn을 실행하도록 바꿉니다. 실패하면 앱이 뜨지 않고 Render 배포가 실패로 표시됩니다 (이전 버전이 계속 서비스됨).
    - 로컬: `app.devserver`(`make run back`)도 시작 전에 `upgrade head`를 실행합니다.
-6. **테스트 추가**:
+6. (완료) **테스트 추가**:
    - 빈 DB에 `upgrade head`를 한 결과가 모델(`Base.metadata`)과 같은지 확인 (Alembic의 `compare_metadata`). 모델만 바꾸고 마이그레이션 파일을 빼먹으면 이 테스트가 실패합니다. CI에서 SQLite와 PostgreSQL 둘 다 돌아갑니다.
    - `upgrade head` → `downgrade base` → `upgrade head`가 오류 없이 되는지.
-   - `tests/compose`: 새 PostgreSQL에서 컨테이너가 테이블을 만들고 정상 동작하는지 (기존 스모크 테스트가 이미 확인하는지 점검).
+   - `tests/compose`: 새 PostgreSQL에서 컨테이너가 테이블을 만들고 정상 동작하는지 (기존 스모크 테스트가 `/api/recipes` 응답을 기다리므로 테이블이 없으면 실패합니다).
 7. **CI 설정**: `.github/workflows/compose.yml`의 `paths`에 `backend/migrations/**`, `backend/alembic.ini`를 추가합니다.
-8. **문서**: `AGENTS.md`(명령어: 마이그레이션 만들기/적용, `db.py` 설명, Deployment의 "스키마 변경은 두 DB에" 주의사항), `docs/testing.md`를 고칩니다. 마이그레이션 만드는 순서: `db.py` 모델 수정 → `uv run alembic revision --autogenerate -m "..."` → 파일 읽고 확인 → `uv run alembic upgrade head` → 모델과 마이그레이션을 같이 커밋.
+8. (완료) **문서**: `AGENTS.md`(명령어: 마이그레이션 만들기/적용, `db.py` 설명, Deployment의 "스키마 변경은 두 DB에" 주의사항), `docs/testing.md`를 고칩니다. 마이그레이션 만드는 순서: `db.py` 모델 수정 → `uv run alembic revision --autogenerate -m "..."` → 파일 읽고 확인 → `uv run alembic upgrade head` → 모델과 마이그레이션을 같이 커밋.
 9. **이미 있는 DB에 출발점 표시(stamp)**: 이미 테이블이 있는 DB는 baseline을 실행하면 안 되므로, "baseline까지 적용됨"이라고 기록만 합니다: `DATABASE_URL=<주소> uv run alembic stamp f9e81a5676ed` (baseline id). 순서가 중요합니다.
-   - 로컬 SQLite 파일: 4번 이후 바로.
+   - (완료) 로컬 SQLite 파일 (`backend/mongle_spoon.db`).
+   - 로컬 compose의 PostgreSQL (볼륨 `mongle-spoon-pgdata`): 다음에 `docker compose up` 하기 전에. `docker compose up -d db`로 DB만 켜고 `DATABASE_URL=postgresql://<사용자>:<비밀번호>@127.0.0.1:5432/<DB 이름> uv run alembic stamp f9e81a5676ed`. 안 하면 `app` 컨테이너가 stamp하라는 메시지를 남기고 시작하지 않습니다.
    - Neon dev: 이 작업을 `main`에 푸시**하기 전에**. 안 하면 dev 배포 시 baseline이 실행되어 실패합니다.
    - Neon 운영: prod로 승격**하기 전에**.
-   - (Render의 SQLite는 쓰지 않고, compose/Docker의 새 DB는 비어 있으므로 stamp 없이 `upgrade head`가 테이블을 만듭니다.)
+   - (새 DB는 비어 있으므로 stamp 없이 Alembic이 테이블을 만듭니다. compose 테스트의 볼륨, 테스트용 DB가 그렇습니다.)
 10. **배포 확인**: `main` 푸시 → dev 배포 로그에 Alembic 실행이 보이고 앱이 정상인지 확인 → prod 승격.
 
 알아 둘 것:

@@ -34,6 +34,8 @@ COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 
 COPY backend/app ./app
+COPY backend/alembic.ini ./
+COPY backend/migrations ./migrations
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
 
 # SQLite lives in /data; mount a volume there or the data dies with the container.
@@ -45,5 +47,7 @@ ENV PATH="/app/backend/.venv/bin:$PATH" \
     DATABASE_URL=sqlite:////data/mongle_spoon.db
 
 EXPOSE 8000
+# Migrate the database first; if that fails, the app doesn't start (and a
+# deploy fails, leaving the previous version running).
 # Hosting platforms often pass the port in $PORT.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python -m app.migrate && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

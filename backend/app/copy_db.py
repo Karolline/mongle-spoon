@@ -1,6 +1,7 @@
 """Copy every recipe from one database into another, empty one.
 
 Keeps ids and timestamps. Used to move the local SQLite data to production.
+The target's tables are created (migrated) first, so it can be a new database.
 
 Usage (inside backend/):
     uv run python -m app.copy_db TARGET_URL                 # from ./mongle_spoon.db
@@ -10,6 +11,7 @@ Usage (inside backend/):
 import argparse
 
 from app.db import DEFAULT_DATABASE_URL, make_engine
+from app.migrate import UnstampedDatabaseError, upgrade
 from app.store import RecipeStore
 
 
@@ -35,10 +37,11 @@ def main() -> None:
     args = parser.parse_args()
 
     source = RecipeStore(engine=make_engine(args.source))
-    target = RecipeStore(engine=make_engine(args.target))
     try:
+        upgrade(args.target)
+        target = RecipeStore(engine=make_engine(args.target))
         count = copy_recipes(source, target)
-    except ValueError as error:
+    except (ValueError, UnstampedDatabaseError) as error:
         raise SystemExit(f"Nothing copied: {error}.")
     # Don't echo the target URL: it contains the database password.
     print(f"Copied {count} recipes.")

@@ -1,15 +1,18 @@
 """Key user workflows from product-spec.md, run against a real database.
 
-These use the default app wiring (create_app() reading DATABASE_URL), so they
-cover the same path the dev server uses, including persistence across restarts.
+These use the default app wiring (create_app() reading DATABASE_URL, tables
+made by the migrations), so they cover the same path the dev server uses,
+including persistence across restarts.
 The database is a SQLite file, or TEST_DATABASE_URL when set (e.g. PostgreSQL).
 """
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.db import make_engine
 from app.main import create_app
-from tests.conftest import AUTH, TEST_DATABASE_URL, fresh_engine
+from app.migrate import upgrade
+from tests.conftest import AUTH, TEST_DATABASE_URL, drop_everything
 
 
 @pytest.fixture
@@ -18,7 +21,10 @@ def database_url(tmp_path, monkeypatch) -> str:
         url = f"sqlite:///{tmp_path / 'app.db'}"
     else:
         url = TEST_DATABASE_URL
-        fresh_engine(url).dispose()
+        engine = make_engine(url)
+        drop_everything(engine)
+        engine.dispose()
+    upgrade(url)
     monkeypatch.setenv("DATABASE_URL", url)
     return url
 

@@ -113,7 +113,7 @@ def normalize_url(url: str) -> str:
 
 
 def make_engine(url: str | None = None) -> Engine:
-    """Create an engine and make sure the tables exist."""
+    """Create an engine. It doesn't create tables: migrations do (app/migrate.py)."""
     url = normalize_url(url or database_url())
     kwargs: dict = {}
     if url.startswith("postgresql"):
@@ -125,6 +125,4 @@ def make_engine(url: str | None = None) -> Engine:
         if ":memory:" in url or url in ("sqlite://", "sqlite+pysqlite://"):
             # One shared connection, otherwise every connection gets its own empty DB.
             kwargs["poolclass"] = StaticPool
-    engine = create_engine(url, **kwargs)
-    Base.metadata.create_all(engine)
-    return engine
+    return create_engine(url, **kwargs)

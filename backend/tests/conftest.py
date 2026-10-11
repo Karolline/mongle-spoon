@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from sqlalchemy import Engine  # noqa: E402
+from sqlalchemy import Engine, MetaData  # noqa: E402
 
 from app.db import Base, make_engine  # noqa: E402
 from app.main import create_app  # noqa: E402
@@ -29,6 +29,13 @@ def fresh_engine(url: str = TEST_DATABASE_URL) -> Engine:
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return engine
+
+
+def drop_everything(engine: Engine) -> None:
+    """Drop all tables, including alembic_version (not in Base.metadata)."""
+    metadata = MetaData()
+    metadata.reflect(engine)
+    metadata.drop_all(engine)
 
 
 class FakeClock:

@@ -3,6 +3,7 @@ import socket
 import pytest
 
 from app import devserver
+from app.migrate import UnstampedDatabaseError
 
 
 def test_port_in_use_when_something_listens() -> None:
@@ -23,6 +24,7 @@ def test_port_free_after_listener_closes() -> None:
 def test_main_refuses_to_start_on_a_taken_port(monkeypatch) -> None:
     started = []
     monkeypatch.setattr(devserver, "port_in_use", lambda host, port: True)
+    monkeypatch.setattr(devserver, "upgrade", lambda: started.append("upgrade"))
     monkeypatch.setattr(devserver.uvicorn, "run", lambda *a, **kw: started.append(a))
 
     with pytest.raises(SystemExit) as exc:
@@ -32,11 +34,32 @@ def test_main_refuses_to_start_on_a_taken_port(monkeypatch) -> None:
     assert started == []
 
 
-def test_main_starts_uvicorn_on_a_free_port(monkeypatch) -> None:
+def test_main_migrates_then_starts_uvicorn_on_a_free_port(monkeypatch) -> None:
     started = []
     monkeypatch.setattr(devserver, "port_in_use", lambda host, port: False)
+    monkeypatch.setattr(devserver, "upgrade", lambda: started.append("upgrade"))
     monkeypatch.setattr(devserver.uvicorn, "run", lambda *a, **kw: started.append((a, kw)))
 
     devserver.main()
 
-    assert started == [(("app.main:app",), {"host": "127.0.0.1", "port": 8000, "reload": True})]
+    assert started == [
+        "upgrade",
+        (("app.main:app",), {"host": "127.0.0.1", "port": 8000, "reload": True}),
+    ]
+
+
+def test_main_does_not_start_on_an_unstamped_database(monkeypatch) -> None:
+    started = []
+
+    def unstamped() -> None:
+        raise UnstampedDatabaseError("stamp it first")
+
+    monkeypatch.setattr(devserver, "port_in_use", lambda host, port: False)
+    monkeypatch.setattr(devserver, "upgrade", unstamped)
+    monkeypatch.setattr(devserver.uvicorn, "run", lambda *a, **kw: started.append(a))
+
+    with pytest.raises(SystemExit) as exc:
+        devserver.main()
+
+    assert "stamp it first" in str(exc.value)
+    assert started == []

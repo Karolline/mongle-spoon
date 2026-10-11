@@ -3,6 +3,7 @@
 uvicorn binds with SO_REUSEADDR, which on Windows lets a second server bind a
 port that another one is still listening on. Requests then go to whichever
 server Windows picks, e.g. a leftover one running old code. So check first.
+It also migrates the database (DATABASE_URL, default the local SQLite file).
 
 Usage (inside backend/): uv run python -m app.devserver
 """
@@ -11,6 +12,8 @@ import socket
 import sys
 
 import uvicorn
+
+from app.migrate import UnstampedDatabaseError, upgrade
 
 HOST = "127.0.0.1"
 PORT = 8000
@@ -30,6 +33,10 @@ def main() -> None:
             f"Stop it first. On Windows, find it with: netstat -ano | findstr :{PORT}\n"
             "then stop it with: Stop-Process -Id <PID> -Force"
         )
+    try:
+        upgrade()
+    except UnstampedDatabaseError as error:
+        sys.exit(str(error))
     uvicorn.run("app.main:app", host=HOST, port=PORT, reload=True)
 
 

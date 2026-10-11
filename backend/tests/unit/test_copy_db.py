@@ -1,16 +1,17 @@
 import pytest
 
+from app import copy_db
 from app.copy_db import copy_recipes
 from app.db import make_engine
 from app.models import Ingredient, RecipeInput
 from app.store import RecipeStore, seed
-from tests.conftest import START
+from tests.conftest import START, fresh_engine
 
 
 @pytest.fixture
 def local_store() -> RecipeStore:
     """The source: a seeded SQLite database, like the local mongle_spoon.db."""
-    store = RecipeStore(engine=make_engine("sqlite://"))
+    store = RecipeStore(engine=fresh_engine("sqlite://"))
     seed(store, now=START)
     return store
 
@@ -36,6 +37,20 @@ def test_refuses_target_with_recipes(local_store: RecipeStore, store: RecipeStor
 
 
 def test_empty_source_copies_nothing(store: RecipeStore) -> None:
-    empty = RecipeStore(engine=make_engine("sqlite://"))
+    empty = RecipeStore(engine=fresh_engine("sqlite://"))
     assert copy_recipes(empty, store) == 0
     assert store.is_empty()
+
+
+def test_main_creates_the_tables_of_a_new_target(tmp_path, monkeypatch, capsys) -> None:
+    source_url = f"sqlite:///{tmp_path / 'local.db'}"
+    target_url = f"sqlite:///{tmp_path / 'new.db'}"
+    seed(RecipeStore(engine=fresh_engine(source_url)), now=START)
+    monkeypatch.setattr("sys.argv", ["copy_db", target_url, "--source", source_url])
+
+    copy_db.main()
+
+    source = RecipeStore(engine=make_engine(source_url))
+    target = RecipeStore(engine=make_engine(target_url))
+    assert target.list() == source.list()
+    assert f"Copied {len(source.list())} recipes." in capsys.readouterr().out

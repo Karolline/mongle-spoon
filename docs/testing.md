@@ -13,14 +13,16 @@ uv run pytest tests/integration   # integration tests only
 | Folder | What it covers | Database |
 |---|---|---|
 | `tests/unit/test_store.py` | `RecipeStore` on its own: search, meal-time filtering, sorting, create/update/delete, seeding, long text. | In-memory SQLite (`sqlite://`) |
-| `tests/unit/test_copy_db.py` | `copy_recipes()`: copies every recipe unchanged from a SQLite database, refuses a target that already has recipes, and the target still accepts new recipes. | In-memory SQLite as the source, `TEST_DATABASE_URL` as the target |
+| `tests/unit/test_copy_db.py` | `copy_recipes()`: copies every recipe unchanged from a SQLite database, refuses a target that already has recipes, and the target still accepts new recipes. `main()` migrates a new target before copying. | In-memory SQLite as the source, `TEST_DATABASE_URL` as the target; SQLite files for `main()` |
 | `tests/unit/test_db.py` | `normalize_url()`: plain PostgreSQL URLs get the psycopg driver, others are unchanged. | None |
-| `tests/unit/test_devserver.py` | The dev server's port check: refuses to start uvicorn when the port is taken. | None |
+| `tests/unit/test_devserver.py` | The dev server's port check: refuses to start uvicorn when the port is taken. Migrates before starting, and doesn't start on an unstamped database. | None |
+| `tests/unit/test_migrations.py` | Alembic: upgrading an empty database builds exactly the tables of the models (fails when a model changed without a migration), downgrade and upgrade again, stamping a pre-Alembic database keeps its recipes, `app.migrate.upgrade()` refuses an unstamped database and reads `DATABASE_URL`. | SQLite file in a temp folder, or `TEST_DATABASE_URL` |
+| `tests/unit/test_seed.py` | `python -m app.seed`: refuses a database without tables, seeds a migrated one. | SQLite file in a temp folder |
 | `tests/unit/test_versions.py` | The app version is the same in `pyproject.toml`, `frontend/package.json`, `openapi.yaml` and the FastAPI app (see [`versioning.md`](versioning.md)). | None |
 | `tests/integration/test_recipes_api.py` | Each endpoint in `openapi.yaml` through HTTP: status codes, validation errors, camelCase JSON, CORS, and that every route goes through `require_access`. | In-memory SQLite |
 | `tests/integration/test_auth.py` | Write protection: reads need no password; create, update and delete return 401 without or with a wrong password and 503 when `ADMIN_PASSWORD` is unset; `/auth/verify`; CORS allows the `Authorization` header. | In-memory SQLite |
 | `tests/integration/test_frontend.py` | Serving the built frontend (a fake `dist` folder): app routes get `index.html`, built files are served, `/api` keeps answering JSON and unknown `/api/...` paths stay 404. | In-memory SQLite |
-| `tests/integration/test_workflows.py` | Key user workflows from [`product-spec.md`](../product-spec.md) end to end (add, find by search and meal time, edit, delete), plus persistence across an app restart. Uses the default app wiring, so `DATABASE_URL` is read like in the dev server. | SQLite file in a temp folder, or `TEST_DATABASE_URL` |
+| `tests/integration/test_workflows.py` | Key user workflows from [`product-spec.md`](../product-spec.md) end to end (add, find by search and meal time, edit, delete), plus persistence across an app restart. Uses the default app wiring on a migrated database, so `DATABASE_URL` is read like in the dev server. | SQLite file in a temp folder, or `TEST_DATABASE_URL` |
 
 Shared fixtures live in `tests/conftest.py`. It sets `DATABASE_URL=sqlite://` before the app is imported, so no test touches the real `mongle_spoon.db`, and sets `ADMIN_PASSWORD=test-password`. `client` and `empty_client` send that password with every request; `anon_client` sends none. A fake clock makes `updatedAt` ordering deterministic.
 
