@@ -1,6 +1,10 @@
 # Tests on every push and pull request. Render deploys only after these checks
 # pass (Auto-Deploy: "After CI Checks Pass"): main to the dev service, prod to
 # the production service. Promoting main to prod reruns them on the same commit.
+#
+# After the tests pass on main, the image job builds the Docker image once and
+# pushes it to GHCR as sha-<commit> and dev. A vX.Y.Z tag is added to that same
+# image, never rebuilt (see the image and release-tag jobs).
 
 name: CI
 
@@ -12,6 +16,9 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/karolline/mongle-spoon # GHCR names must be lowercase
 
 jobs:
   backend:
@@ -78,3 +85,54 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+
+  image:
+    name: Image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, backend-postgres, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push
+        run: |
+          docker build \
+            --build-arg GIT_COMMIT="$GITHUB_SHA" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            -t "$IMAGE:dev" \
+            .
+          docker push --all-tags "$IMAGE"
+      # A release tag pushed before this point is picked up here. One pushed
+      # after it is handled by the release-tag job of the tag's own run.
+      - name: Tag release versions
+        run: |
+          for tag in $(git ls-remote --tags origin | awk -v sha="$GITHUB_SHA" '
+              $1 == sha { sub(/^refs\/tags\//, "", $2); sub(/\^\{\}$/, "", $2); if ($2 ~ /^v/) print $2 }' | sort -u); do
+            docker buildx imagetools create -t "$IMAGE:$tag" "$IMAGE:sha-${GITHUB_SHA::7}"
+          done
+
+  release-tag:
+    name: Release image tag
+    # The commit was already tested and built on main, so this only adds the
+    # version tag to that image (same digest as what dev ran).
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Tag the image of this commit
+        run: |
+          src="$IMAGE:sha-${GITHUB_SHA::7}"
+          if docker buildx imagetools inspect "$src" > /dev/null 2>&1; then
+            docker buildx imagetools create -t "$IMAGE:$GITHUB_REF_NAME" "$src"
+          else
+            echo "::notice::$src is not pushed yet. The image job of the main run adds $GITHUB_REF_NAME when it pushes it (rerun that run if it failed)."
+          fi
