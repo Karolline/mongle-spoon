@@ -11,7 +11,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import Connection, create_engine, pool
 
-from app.db import Base, database_url, normalize_url
+from app.db import Base, UTCDateTime, database_url, normalize_url
 
 config = context.config
 
@@ -27,9 +27,25 @@ def get_url() -> str:
     return normalize_url(config.get_main_option("sqlalchemy.url") or database_url())
 
 
+def render_item(type_: str, obj, autogen_context):
+    """Write UTCDateTime columns as plain DateTime in generated migrations.
+
+    UTCDateTime only converts values in Python; the database column is a
+    DateTime. This keeps migration files free of imports from app code.
+    """
+    if type_ == "type" and isinstance(obj, UTCDateTime):
+        return "sa.DateTime()"
+    return False
+
+
 def configure(**kwargs) -> None:
-    # Batch mode lets SQLite drop or alter columns (it rebuilds the table).
-    context.configure(target_metadata=target_metadata, render_as_batch=True, **kwargs)
+    context.configure(
+        target_metadata=target_metadata,
+        # Batch mode lets SQLite drop or alter columns (it rebuilds the table).
+        render_as_batch=True,
+        render_item=render_item,
+        **kwargs,
+    )
 
 
 def run_migrations_offline() -> None:
