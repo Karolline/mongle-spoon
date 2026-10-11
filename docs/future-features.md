@@ -4,45 +4,6 @@
 
 난이도: ★☆☆ 쉬움 (반나절) · ★★☆ 보통 (며칠) · ★★★ 어려움 (일주일 이상, 새로 배울 개념 있음)
 
-## 0. 먼저 할 것
-
-### 0. DB 마이그레이션 도구(Alembic) 도입 — ★★☆
-
-1·2·3번은 모두 이미 있는 `recipes` 테이블에 컬럼을 추가합니다. 그런데 `make_engine()`은 없는 *테이블*만 만들어서, 이미 있는 데이터베이스(로컬 SQLite, Neon dev, Neon 운영)에는 새 컬럼이 생기지 않습니다. 그래서 1번 전에 Alembic을 도입합니다.
-
-Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변경마다 마이그레이션 파일을 하나 만들고(앞 파일을 가리켜 순서가 이어짐), 각 DB 안의 `alembic_version` 테이블에 "어디까지 적용했는지"를 기록합니다. `alembic upgrade head`는 그 DB에 아직 적용하지 않은 파일만 차례로 실행합니다. 어느 DB를 바꿀지는 실행하는 곳의 `DATABASE_URL`이 정합니다 (앱과 같은 변수). 도입한 뒤에는 DB 구조를 손으로 바꾸지 않고 항상 마이그레이션 파일로 바꿉니다.
-
-할 일 (순서대로):
-
-1. (완료) **의존성 추가 확인**: `alembic`은 새 의존성이므로 먼저 확인받고 `uv add alembic`.
-2. (완료) **Alembic 설정**: `backend/`에서 `uv run alembic init migrations`. `migrations/env.py`가 `app.db`의 `database_url()`과 `normalize_url()`로 주소를 정하고, `target_metadata = Base.metadata`를 쓰게 합니다 (자동 생성이 모델과 비교할 수 있도록). `alembic.ini`에는 DB 주소를 적지 않습니다. SQLite에서도 나중에 컬럼 삭제/변경이 되도록 `render_as_batch=True`를 켭니다.
-3. (완료) **출발점(baseline) 마이그레이션**: 지금 구조(`recipes`, `ingredients`, `recipe_meal_times`)를 그대로 만드는 첫 마이그레이션을 만듭니다. 빈 DB에 `alembic revision --autogenerate`로 초안을 만들고 읽어서 확인합니다.
-4. (완료) **`make_engine()`에서 `create_all` 제거**: 테이블은 이제 Alembic만 만듭니다. 그대로 두면 빈 DB에서 `create_all`이 테이블을 먼저 만들어서 baseline 마이그레이션이 "이미 있음"으로 실패합니다. 테이블이 필요한 곳은 각각 처리합니다.
-   - 테스트: `conftest.py`의 `fresh_engine()`은 이미 `create_all`을 직접 부르므로 그대로 둡니다. `make_engine()`만 쓰는 테스트(`test_copy_db.py`, `test_store.py`의 파일 DB 테스트)는 테이블을 직접 만들게 고칩니다.
-   - `app/copy_db.py`: 대상 DB에 테이블이 있어야 하므로, 복사 전에 대상 DB에 `upgrade head`를 실행하게 합니다 (빈 DB를 만들고 바로 복사하는 흐름 유지).
-   - `app/seed.py`: 테이블이 없으면 "먼저 `uv run python -m app.migrate`를 실행하라"는 메시지를 보여 줍니다.
-5. (완료) **실행 시 자동 적용**: 코드에서 실행하는 `app/migrate.py`(`uv run python -m app.migrate`)를 만들었습니다. 예전 테이블이 있는데 stamp되지 않은 DB는 적용하지 않고, 실행할 stamp 명령을 알려 줍니다.
-   - Dockerfile: `migrations/`와 `alembic.ini`를 이미지에 복사하고, 시작 명령을 `python -m app.migrate`를 먼저 실행한 뒤 uvicorn을 실행하도록 바꿉니다. 실패하면 앱이 뜨지 않고 Render 배포가 실패로 표시됩니다 (이전 버전이 계속 서비스됨).
-   - 로컬: `app.devserver`(`make run back`)도 시작 전에 `upgrade head`를 실행합니다.
-6. (완료) **테스트 추가**:
-   - 빈 DB에 `upgrade head`를 한 결과가 모델(`Base.metadata`)과 같은지 확인 (Alembic의 `compare_metadata`). 모델만 바꾸고 마이그레이션 파일을 빼먹으면 이 테스트가 실패합니다. CI에서 SQLite와 PostgreSQL 둘 다 돌아갑니다.
-   - `upgrade head` → `downgrade base` → `upgrade head`가 오류 없이 되는지.
-   - `tests/compose`: 새 PostgreSQL에서 컨테이너가 테이블을 만들고 정상 동작하는지 (기존 스모크 테스트가 `/api/recipes` 응답을 기다리므로 테이블이 없으면 실패합니다).
-7. (완료) **CI 설정**: `.github/workflows/compose.yml`의 `paths`에 `backend/migrations/**`, `backend/alembic.ini`를 추가합니다.
-8. (완료) **문서**: `AGENTS.md`(명령어: 마이그레이션 만들기/적용, `db.py` 설명, Deployment의 "스키마 변경은 두 DB에" 주의사항), `docs/testing.md`를 고칩니다. 마이그레이션 만드는 순서: `db.py` 모델 수정 → `uv run alembic revision --autogenerate -m "..."` → 파일 읽고 확인 → `uv run alembic upgrade head` → 모델과 마이그레이션을 같이 커밋.
-9. **이미 있는 DB에 출발점 표시(stamp)**: 이미 테이블이 있는 DB는 baseline을 실행하면 안 되므로, "baseline까지 적용됨"이라고 기록만 합니다: `DATABASE_URL=<주소> uv run alembic stamp f9e81a5676ed` (baseline id). 순서가 중요합니다.
-   - (완료) 로컬 SQLite 파일 (`backend/mongle_spoon.db`).
-   - (완료) 로컬 compose의 PostgreSQL (볼륨 `mongle-spoon-pgdata`): 다음에 `docker compose up` 하기 전에. `docker compose up -d db`로 DB만 켜고 `DATABASE_URL=postgresql://<사용자>:<비밀번호>@127.0.0.1:5432/<DB 이름> uv run alembic stamp f9e81a5676ed`. 안 하면 `app` 컨테이너가 stamp하라는 메시지를 남기고 시작하지 않습니다.
-   - Neon dev: 이 작업을 `main`에 푸시**하기 전에**. 안 하면 dev 배포 시 baseline이 실행되어 실패합니다.
-   - Neon 운영: prod로 승격**하기 전에**.
-   - (새 DB는 비어 있으므로 stamp 없이 Alembic이 테이블을 만듭니다. compose 테스트의 볼륨, 테스트용 DB가 그렇습니다.)
-10. **배포 확인**: `main` 푸시 → dev 배포 로그에 Alembic 실행이 보이고 앱이 정상인지 확인 → prod 승격.
-
-알아 둘 것:
-- `main` 푸시는 Neon dev만 바꾸고, Neon 운영은 승격할 때 바뀝니다. dev에서 먼저 시험하는 흐름이 자동으로 됩니다.
-- prod를 예전 이미지로 롤백해도 DB는 내려가지 않습니다. 비어 있을 수 있는 컬럼 추가(1·2·3번)는 예전 코드가 무시하므로 괜찮지만, 컬럼 삭제나 이름 변경은 예전 코드를 깨뜨립니다. 그런 변경은 두 번에 나눕니다 (먼저 코드가 안 쓰게 배포, 다음 배포에서 삭제).
-- 배포하는 짧은 동안 이전 컨테이너가 새 구조의 DB 위에서 돌므로, 같은 이유로 이전 코드가 깨지지 않는 변경이 안전합니다.
-
 ## A. 기존 기능을 조금 확장하는 것
 
 ### 1. 특정 레시피 최상단 고정 (예: "오늘 만들 것") — ★★☆
@@ -51,7 +12,7 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 
 - 백엔드: `recipes` 테이블에 비어 있을 수 있는 `pinned_at` 날짜 컬럼 추가. `RecipeStore`가 고정된 것을 먼저(최근에 고정한 순), 나머지는 지금처럼 정렬. `models.py`와 `openapi.yaml`에 반영하고, 고정/해제 방법 추가 (수정 요청의 필드로 하거나 `POST/DELETE /api/recipes/{id}/pin`). 고정도 쓰기 작업이므로 `require_write` 필요.
 - 프론트엔드: 카드나 상세 화면에 고정 버튼 (`useUnlockGate()`로 비밀번호 확인), 카드에 고정 표시. `httpRecipeService`와 `mockRecipeService` 둘 다 수정.
-- 주의: 새 컬럼이므로 0번(Alembic 도입)을 먼저 해야 합니다. 컬럼은 마이그레이션 파일로 추가합니다.
+- DB: 컬럼은 Alembic 마이그레이션으로 추가합니다 (`AGENTS.md`의 Migrations). Alembic 도입 후 첫 실제 구조 변경이라, dev 배포 로그에 `Running upgrade f9e81a5676ed -> ...` 줄이 나오는지 확인합니다.
 
 ### 2. 최근에 만든 날짜 기록, 목록을 최근에 만든 순으로 정렬 — ★★☆
 
@@ -61,7 +22,7 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 - 프론트엔드: 상세 화면에 "오늘 만들었어요" 버튼 (`useUnlockGate()`로 비밀번호 확인), 카드나 상세에 "마지막으로 만든 날" 표시. 정렬은 서비스 계층(백엔드와 mock)에서 하고 화면에서는 하지 않습니다.
 - 스펙 변경: `product-spec.md`의 "List: sorted by most recently updated first"를 바꿔야 합니다.
 - 시작 전에 정할 것: 날짜를 버튼으로 "오늘"만 찍을지, 날짜를 직접 고를 수도 있게 할지 (어제 만든 걸 오늘 기록하는 경우). 날짜만 저장할지 시각까지 저장할지. 1번(고정)과 함께 쓰면 고정한 것이 먼저, 그다음 최근에 만든 순입니다.
-- 주의: 1번과 같이 새 컬럼이므로 0번(Alembic 도입)이 먼저 필요합니다.
+- DB: 1번과 같이 컬럼은 Alembic 마이그레이션으로 추가합니다.
 
 ### 3. 남은 양 기록 — ★★☆
 
@@ -70,7 +31,7 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 - 백엔드: `recipes` 테이블에 비어 있을 수 있는 남은 양 컬럼 추가. `models.py`, `openapi.yaml`에 반영. 수정은 `require_write` 필요.
 - 프론트엔드: 카드와 상세 화면에 남은 양 표시, 상세 화면에서 바로 바꿀 수 있게 (`useUnlockGate()`). 자주 바꾸는 값이라 수정 화면 전체를 거치지 않는 편이 좋습니다.
 - 시작 전에 정할 것: 자유 글("큐브 5개", "반 통")로 할지, 숫자 + 단위로 할지. 숫자면 −/+ 버튼으로 하나씩 줄이기 쉽고 "다 먹은 것"을 구분할 수 있습니다. 2번의 "오늘 만들었어요"를 누를 때 남은 양도 같이 입력하게 할지.
-- 주의: 새 컬럼이므로 0번(Alembic 도입)이 먼저 필요합니다. 2번과 함께 하면 컬럼 추가를 마이그레이션 하나로 할 수 있습니다.
+- DB: 컬럼은 Alembic 마이그레이션으로 추가합니다. 2번과 함께 하면 마이그레이션 하나로 할 수 있습니다.
 
 ## B. 완전히 새로 만드는 기능
 
@@ -89,7 +50,7 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 
 - 카카오 쪽: Kakao Developers에 앱 등록, 로컬과 운영용 리다이렉트 URL 설정.
 - 백엔드: OAuth 로그인 흐름 (리다이렉트 → 카카오 → 콜백), `users` 테이블, `recipes`에 `owner_id`, 세션 또는 토큰, 모든 조회를 현재 유저 기준으로 필터링. `app/auth.py`의 `require_access` / `require_write`는 "로그인한 유저가 이 레시피의 주인인지" 확인으로 바뀜.
-- 기존 데이터: 이미 저장된 레시피를 어느 유저 것으로 할지 정해야 합니다.
+- 기존 데이터: 이미 저장된 레시피를 어느 유저 것으로 할지 정해야 합니다. `owner_id`를 추가하는 마이그레이션 안에서 기존 행의 값을 채웁니다 (자동 생성은 구조만 만들므로 이 부분은 직접 씁니다).
 - 프론트엔드: 로그인 화면, 로그아웃, 서비스 계층에 로그인 상태 (mock에는 가짜 유저 필요).
 - 보안이 중요합니다 (토큰 보관, CSRF, 쿠키 설정). 스펙에 "나중에 할 것"으로 적혀 있습니다 ("User accounts, per-person permissions").
 
@@ -156,7 +117,7 @@ Render가 이미 CPU·메모리 그래프와 stdout 로그를 보여 주므로, 
 
 ## 추천 순서
 
-0 → 1 → 2 → 3. 0번(Alembic 도입)은 1·2·3번 모두에 필요해서 가장 먼저 합니다. 0번만 따로 배포해서 dev와 prod에서 확인한 뒤 1번을 시작하면, 문제가 생겼을 때 원인을 찾기 쉽습니다.
+1 → 2 → 3. 셋 다 DB 구조를 바꾸므로 dev에서 먼저 확인한 뒤 prod로 승격합니다. DB 마이그레이션 도구(Alembic)는 도입해 두었습니다.
 
 6번과 7번은 기능과 관계없는 배포 정리라서 언제 해도 됩니다.
 

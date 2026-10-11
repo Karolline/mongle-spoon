@@ -14,7 +14,7 @@ Frontend and FastAPI backend are connected over HTTP, and recipes are stored thr
 |---|---|
 | Frontend | React + Vite + TypeScript (Node.js), TanStack Router, Tailwind CSS, Vitest |
 | Backend | Python (managed with `uv`) + FastAPI (OpenAPI) |
-| Database | SQLAlchemy + SQLite (local) / PostgreSQL (production) |
+| Database | SQLAlchemy + SQLite (local) / PostgreSQL (production), schema migrations with Alembic |
 
 ## Production
 
@@ -28,6 +28,7 @@ Two environments, running the same Docker image. They differ only in their envir
 
 - **CI**: GitHub Actions runs the backend tests on SQLite and PostgreSQL 18, and the frontend test/lint/build, on every push and PR. Nothing deploys unless these checks pass.
 - **Container registry**: on `main`, CI builds the Docker image once and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases), then calls the Render dev service's Deploy Hook to run it. Promoting sends that same image to prod, so prod runs exactly what was checked on dev.
+- **Database schema**: changed only through Alembic migrations. Each container applies new migrations to its own database when it starts, so a push migrates the dev database and a promotion migrates prod.
 - **Deployments** on the GitHub repo page shows which commit each environment last received.
 - The app version at the bottom of the list screen shows which version each environment runs.
 
@@ -78,8 +79,9 @@ Requires Python 3.13+ and [`uv`](https://docs.astral.sh/uv/).
 ```
 cd backend
 uv sync
-uv run python -m app.devserver         # API at http://localhost:8000/api, docs at /docs
-uv run python -m app.seed               # optional: sample recipes, only into an empty DB
+uv run python -m app.devserver         # migrates the DB, then API at http://localhost:8000/api, docs at /docs
+uv run python -m app.migrate            # only migrate the DB (create or update its tables)
+uv run python -m app.seed               # optional: sample recipes, only into an empty DB (migrate first)
 uv run python -m app.copy_db "<URL>"    # copy ./mongle_spoon.db into another, empty DB (e.g. production)
 uv run pytest                           # all tests (unit + integration)
 ```
@@ -87,6 +89,19 @@ uv run pytest                           # all tests (unit + integration)
 `app.devserver` runs uvicorn with `--reload`, but first refuses to start if port 8000 is already taken. On Windows uvicorn would otherwise share the port with a leftover server (e.g. one whose terminal was closed without `Ctrl+C`), and requests could silently go to that old server.
 
 Recipes are stored in `backend/mongle_spoon.db` by default. Set `DATABASE_URL` to use another database. A PostgreSQL URL can be pasted as given by the host (e.g. Neon's `postgresql://...?sslmode=require`); the backend uses the psycopg driver for it. For a local PostgreSQL, write `127.0.0.1` rather than `localhost` (on Windows, `localhost` may try IPv6 first and hang).
+
+### Database migrations
+
+Tables are created and changed by [Alembic](https://alembic.sqlalchemy.org/) migrations in `backend/migrations/versions/`, never by hand. Each database records the last migration it has in an `alembic_version` table, and `app.migrate` applies only the newer ones. To change the schema:
+
+1. Change the models in `backend/app/db.py`.
+2. `uv run alembic revision --autogenerate -m "add pinned_at"` writes a draft migration. Read it and fix what autogenerate got wrong.
+3. `uv run python -m app.migrate` applies it to your database (`uv run alembic current` shows where a database is).
+4. Commit the model and the migration together. A test fails if the models and the migrations don't match.
+
+Deployments migrate their own database on start. Keep a migration compatible with the previous release (adding a nullable column is fine), because rolling back the image doesn't roll back the database.
+
+A database whose tables were created before Alembic (by older versions of the app) must be marked once as already having the first migration: `uv run alembic stamp f9e81a5676ed` with `DATABASE_URL` pointing at it. Until then, the app refuses to start on it and prints that command. The local SQLite file, the local compose database, and both Neon databases are already stamped.
 
 Allowed CORS origins come from `CORS_ORIGINS` (comma-separated, default `http://localhost:5173`).
 
@@ -115,7 +130,7 @@ Then open http://localhost:8000.
 - `ADMIN_PASSWORD`: required for writes (see [Write password](#write-password)).
 - The SQLite file is `/data/mongle_spoon.db`. Mount a volume on `/data`, or the recipes are lost when the container is removed. Set `DATABASE_URL` to use another database.
 - The server listens on `$PORT` when set (many hosting platforms set it), otherwise 8000.
-- The image runs uvicorn directly; `app.devserver` is for local development only.
+- On start the container applies database migrations (`python -m app.migrate`), then runs uvicorn directly. If migrating fails, it stops instead of serving. `app.devserver` is for local development only.
 
 ### Docker Compose (app + PostgreSQL)
 
@@ -132,4 +147,4 @@ docker compose down            # stop and remove the containers; data stays
 
 ## Testing
 
-Backend tests are split into `backend/tests/unit/` (the store on its own) and `backend/tests/integration/` (HTTP endpoints and end-to-end user workflows against a real SQLite file). Run one group with `uv run pytest tests/unit` or `uv run pytest tests/integration`. To run the same tests on PostgreSQL, point `TEST_DATABASE_URL` at a throwaway database (its tables are dropped and recreated): `TEST_DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/DBNAME uv run pytest`. See [`docs/testing.md`](docs/testing.md) for what each suite covers.
+Backend tests are split into `backend/tests/unit/` (the store, migrations and scripts on their own) and `backend/tests/integration/` (HTTP endpoints and end-to-end user workflows against a real SQLite file). Run one group with `uv run pytest tests/unit` or `uv run pytest tests/integration`. To run the same tests on PostgreSQL, point `TEST_DATABASE_URL` at a throwaway database (its tables are dropped and recreated): `TEST_DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/DBNAME uv run pytest`. See [`docs/testing.md`](docs/testing.md) for what each suite covers.

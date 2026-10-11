@@ -16,7 +16,7 @@ The spec is [`product-spec.md`](product-spec.md). Read it before starting any ta
 
 - Frontend: React + Vite + TypeScript (Node.js), tested with Vitest, in `frontend/`
 - Backend: Python + FastAPI, in `backend/`
-- Database: SQLAlchemy. SQLite for local development and tests, PostgreSQL (psycopg) in production. Keep the code database-agnostic (no SQLite- or Postgres-only features); the DB URL comes from an environment variable.
+- Database: SQLAlchemy, schema migrations with Alembic. SQLite for local development and tests, PostgreSQL (psycopg) in production. Keep the code database-agnostic (no SQLite- or Postgres-only features); the DB URL comes from an environment variable.
 
 ## Commands
 
@@ -83,7 +83,7 @@ Two environments on Render, both running the Docker image CI builds once and pus
 - Don't redeploy from the Render dashboard (Manual Deploy): it uses the image URL saved in the service settings, which is the tag from when the source was switched (dev `sha-12ae57f`, prod `sha-42c551c`). A Deploy Hook's `imgURL` doesn't update that setting. Rerun the CI run or the promotion instead.
 - There is no `prod` branch (it was deleted once prod moved to images; `v1.0.3` marks its last commit). `main` is the only long-lived branch; release versions are git tags.
 - Never point dev and prod at the same database.
-- Schema changes go through Alembic migrations, never by hand. Each environment migrates its own database when its container starts, so a push migrates the dev database and a promotion migrates prod. Rolling back the image doesn't roll back the database: keep migrations compatible with the previous image (adding a nullable column is fine; drop or rename a column in two releases).
+- Schema changes go through Alembic migrations, never by hand. Every existing database (local SQLite, local compose, Neon dev, Neon prod) is stamped with the baseline, so new migrations apply automatically. Each environment migrates its own database when its container starts, so a push migrates the dev database and a promotion migrates prod. Rolling back the image doesn't roll back the database: keep migrations compatible with the previous image (adding a nullable column is fine; drop or rename a column in two releases).
 
 ## Rules
 
