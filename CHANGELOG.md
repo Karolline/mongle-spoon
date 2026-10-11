@@ -2,6 +2,13 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.1.0 (2026-10-11)
+
+- Recipes can be pinned to the top of the list, from a card's pin button or the detail screen's [고정] button. Pinned cards show a 고정 badge.
+- Each recipe can record the day it was last made: [오늘 만들었어요] on the detail screen, or another day from a date picker, and [기록 지우기] to remove it. Cards show it (e.g. "3일 전 만듦").
+- The list shows pinned recipes first, then the rest by the day they were last made (never-made ones last, by most recently updated).
+- Database: two new nullable columns (`recipes.pinned_at`, `recipes.last_made_on`), added by migrations that run when the app starts.
+
 ## v1.0.3 (2026-10-10)
 
 - Tapping the selected meal-time filter button again clears the filter, the same as tapping [전체].
