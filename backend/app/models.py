@@ -63,3 +63,4 @@ class Recipe(ApiModel):
     notes: str
     created_at: datetime
     updated_at: datetime
+    pinned_at: datetime | None = None

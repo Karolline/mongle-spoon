@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Engine, exists, func, select
+from sqlalchemy import Engine, case, exists, func, select
 from sqlalchemy.orm import sessionmaker
 
 from app.db import IngredientRow, MealTimeRow, RecipeRow, make_engine
@@ -43,7 +43,15 @@ class RecipeStore:
                     MealTimeRow.meal_time == meal_time.value,
                 )
             )
-        stmt = stmt.order_by(RecipeRow.updated_at.desc(), RecipeRow.id)
+        # Pinned recipes first (most recently pinned first), then the rest by
+        # updated_at. NULLs sort differently per database, so pinned/unpinned
+        # is an explicit CASE instead of relying on NULL ordering.
+        stmt = stmt.order_by(
+            case((RecipeRow.pinned_at.is_(None), 1), else_=0),
+            RecipeRow.pinned_at.desc(),
+            RecipeRow.updated_at.desc(),
+            RecipeRow.id,
+        )
         with self._sessions() as session:
             return [_to_model(row) for row in session.scalars(stmt)]
 
@@ -68,6 +76,25 @@ class RecipeStore:
             session.flush()
             return _to_model(row)
 
+    def pin(self, recipe_id: str) -> Recipe | None:
+        """Pin to the top of the list. Already pinned keeps its place. updated_at is kept."""
+        with self._sessions.begin() as session:
+            row = session.get(RecipeRow, recipe_id)
+            if row is None:
+                return None
+            if row.pinned_at is None:
+                row.pinned_at = self._clock()
+            return _to_model(row)
+
+    def unpin(self, recipe_id: str) -> Recipe | None:
+        """Unpin (a no-op when not pinned). updated_at is kept."""
+        with self._sessions.begin() as session:
+            row = session.get(RecipeRow, recipe_id)
+            if row is None:
+                return None
+            row.pinned_at = None
+            return _to_model(row)
+
     def delete(self, recipe_id: str) -> None:
         """Idempotent: deleting an unknown id is a no-op."""
         with self._sessions.begin() as session:
@@ -88,6 +115,7 @@ class RecipeStore:
                     id=recipe.id,
                     created_at=recipe.created_at,
                     updated_at=recipe.updated_at,
+                    pinned_at=recipe.pinned_at,
                 )
                 _fill_row(row, recipe)
                 session.add(row)
@@ -125,6 +153,7 @@ def _to_model(row: RecipeRow) -> Recipe:
         notes=row.notes,
         created_at=row.created_at,
         updated_at=row.updated_at,
+        pinned_at=row.pinned_at,
     )
 
 

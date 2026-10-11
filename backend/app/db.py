@@ -61,6 +61,8 @@ class RecipeRow(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
+    # When the recipe was pinned to the top of the list; None when not pinned.
+    pinned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
     ingredients: Mapped[list["IngredientRow"]] = relationship(
         order_by="IngredientRow.position",

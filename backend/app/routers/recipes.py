@@ -72,6 +72,34 @@ def update_recipe(recipe_id: str, data: RecipeInput, store: StoreDep) -> Recipe:
     return recipe
 
 
+@router.post(
+    "/{recipe_id}/pin",
+    response_model=Recipe,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
+    operation_id="pinRecipe",
+)
+def pin_recipe(recipe_id: str, store: StoreDep) -> Recipe:
+    recipe = store.pin(recipe_id)
+    if recipe is None:
+        raise _not_found()
+    return recipe
+
+
+@router.delete(
+    "/{recipe_id}/pin",
+    response_model=Recipe,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
+    operation_id="unpinRecipe",
+)
+def unpin_recipe(recipe_id: str, store: StoreDep) -> Recipe:
+    recipe = store.unpin(recipe_id)
+    if recipe is None:
+        raise _not_found()
+    return recipe
+
+
 @router.delete(
     "/{recipe_id}",
     status_code=status.HTTP_204_NO_CONTENT,

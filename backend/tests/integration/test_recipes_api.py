@@ -26,6 +26,7 @@ RECIPE_KEYS = {
     "notes",
     "createdAt",
     "updatedAt",
+    "pinnedAt",
 }
 
 
@@ -35,7 +36,7 @@ def test_list_returns_seeded_recipes_newest_first(client: TestClient) -> None:
     body = res.json()
     assert len(body) >= 4
     assert all(set(r) == RECIPE_KEYS for r in body)
-    updated = [r["updatedAt"] for r in body]
+    updated = [r["updatedAt"] for r in body]  # nothing pinned in the seed
     assert updated == sorted(updated, reverse=True)
 
 
@@ -62,6 +63,7 @@ def test_create_returns_201_with_full_recipe(empty_client: TestClient) -> None:
     assert set(body) == RECIPE_KEYS
     assert body["mealTimes"] == ["breakfast"]
     assert body["createdAt"] == body["updatedAt"]
+    assert body["pinnedAt"] is None
 
 
 def test_create_with_only_name_fills_defaults(empty_client: TestClient) -> None:
@@ -123,10 +125,28 @@ def test_update_is_full_replacement(empty_client: TestClient) -> None:
     assert updated["instructions"] == ""
 
 
+def test_pin_and_unpin(client: TestClient) -> None:
+    last = client.get("/api/recipes").json()[-1]
+
+    res = client.post(f"/api/recipes/{last['id']}/pin")
+    assert res.status_code == 200
+    pinned = res.json()
+    assert pinned["pinnedAt"] is not None
+    assert pinned["updatedAt"] == last["updatedAt"]
+    assert client.get("/api/recipes").json()[0] == pinned
+
+    res = client.delete(f"/api/recipes/{last['id']}/pin")
+    assert res.status_code == 200
+    assert res.json() == {**pinned, "pinnedAt": None}
+    assert client.get("/api/recipes").json()[-1]["id"] == last["id"]
+
+
 def test_unknown_id_returns_404(empty_client: TestClient) -> None:
     for res in (
         empty_client.get("/api/recipes/nope"),
         empty_client.put("/api/recipes/nope", json={"name": "x"}),
+        empty_client.post("/api/recipes/nope/pin"),
+        empty_client.delete("/api/recipes/nope/pin"),
     ):
         assert res.status_code == 404
         assert res.json() == {"detail": "Recipe not found"}
@@ -162,6 +182,8 @@ def test_every_route_goes_through_require_access(store: RecipeStore) -> None:
         client.get("/api/recipes/x"),
         client.put("/api/recipes/x", json={"name": "x"}),
         client.delete("/api/recipes/x"),
+        client.post("/api/recipes/x/pin"),
+        client.delete("/api/recipes/x/pin"),
         client.post("/api/auth/verify"),
     ]
-    assert [r.status_code for r in responses] == [418] * 6
+    assert [r.status_code for r in responses] == [418] * 8

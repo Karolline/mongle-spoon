@@ -7,7 +7,7 @@ info:
     The contract the frontend services layer (`frontend/src/services/types.ts`,
     `RecipeService`) expects from the FastAPI backend.
 
-    - Reading is public. Creating, updating and deleting need the admin
+    - Reading is public. Creating, updating, pinning and deleting need the admin
       password (the server's `ADMIN_PASSWORD`), sent as
       `Authorization: Bearer <password>`. When `ADMIN_PASSWORD` is unset,
       every write returns 503.
@@ -24,7 +24,7 @@ security: []
 
 tags:
   - name: recipes
-    description: Baby food recipes (create, read, update, delete, search, filter).
+    description: Baby food recipes (create, read, update, delete, pin, search, filter).
   - name: auth
     description: Checking the admin password that protects writes.
 
@@ -35,8 +35,10 @@ paths:
       operationId: listRecipes
       summary: List recipes
       description: |
-        Returns recipes sorted by `updatedAt`, most recent first.
-        `search` and `mealTime` combine with AND. With neither, all recipes are returned.
+        Returns pinned recipes first (by `pinnedAt`, most recently pinned
+        first), then the rest by `updatedAt`, most recent first.
+        `search` and `mealTime` combine with AND, and apply to pinned recipes
+        too. With neither, all recipes are returned.
       parameters:
         - name: search
           in: query
@@ -118,8 +120,8 @@ paths:
       operationId: updateRecipe
       summary: Replace a recipe
       description: |
-        Full replacement of every editable field. `id` and `createdAt` are
-        kept; `updatedAt` is set to the current time.
+        Full replacement of every editable field. `id`, `createdAt` and
+        `pinnedAt` are kept; `updatedAt` is set to the current time.
       security:
         - adminPassword: []
       requestBody:
@@ -157,6 +159,58 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/WritesDisabled"
+
+  /recipes/{recipeId}/pin:
+    parameters:
+      - name: recipeId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [recipes]
+      operationId: pinRecipe
+      summary: Pin a recipe to the top of the list
+      description: |
+        Sets `pinnedAt` to the current time. Pinning a recipe that is already
+        pinned keeps its `pinnedAt`. `updatedAt` does not change.
+      security:
+        - adminPassword: []
+      responses:
+        "200":
+          description: The pinned recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [recipes]
+      operationId: unpinRecipe
+      summary: Unpin a recipe
+      description: |
+        Sets `pinnedAt` to null (also when it was not pinned). `updatedAt`
+        does not change.
+      security:
+        - adminPassword: []
+      responses:
+        "200":
+          description: The unpinned recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /auth/verify:
     post:
@@ -257,6 +311,7 @@ components:
         - notes
         - createdAt
         - updatedAt
+        - pinnedAt
       properties:
         id:
           type: string
@@ -284,6 +339,10 @@ components:
         updatedAt:
           type: string
           format: date-time
+        pinnedAt:
+          type: [string, "null"]
+          format: date-time
+          description: When the recipe was pinned to the top of the list; null when not pinned.
       example:
         id: "1"
         name: 소고기 애호박 미음
@@ -296,6 +355,7 @@ components:
         notes: 체에 한 번 걸러주면 훨씬 부드러워요.
         createdAt: "2026-09-10T08:00:00Z"
         updatedAt: "2026-09-29T08:00:00Z"
+        pinnedAt: null
 
     Error:
       type: object

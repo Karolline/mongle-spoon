@@ -70,6 +70,71 @@ def test_update_unknown_id_returns_none(store: RecipeStore) -> None:
     assert store.update("nope", RecipeInput(name="x")) is None
 
 
+def test_pinned_recipes_come_first_most_recently_pinned_first(
+    seeded_store: RecipeStore,
+) -> None:
+    unpinned = seeded_store.list()
+    oldest, second_oldest = unpinned[-1], unpinned[-2]
+    seeded_store.pin(second_oldest.id)
+    seeded_store.pin(oldest.id)
+
+    result = seeded_store.list()
+    assert names(result[:2]) == [oldest.name, second_oldest.name]
+    # The rest keep their usual updated_at order.
+    assert names(result[2:]) == names(unpinned[:-2])
+
+
+def test_pinned_recipes_still_follow_search_and_filter(seeded_store: RecipeStore) -> None:
+    banana = seeded_store.list(search="바나나")[0]
+    beef = seeded_store.list(search="소고기")[0]
+    seeded_store.pin(banana.id)
+    seeded_store.pin(beef.id)
+
+    assert names(seeded_store.list(search="죽")) == [
+        banana.name,
+        *[n for n in names(seeded_store.list(search="죽")) if n != banana.name],
+    ]
+    assert beef.name not in names(seeded_store.list(meal_time=MealTime.SNACK))
+    assert names(seeded_store.list(meal_time=MealTime.SNACK))[0] == banana.name
+
+
+def test_pin_and_unpin_keep_updated_at(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    assert created.pinned_at is None
+
+    pinned = store.pin(created.id)
+    assert pinned is not None
+    assert pinned.pinned_at is not None
+    assert pinned.updated_at == created.updated_at
+    assert store.get(created.id) == pinned
+
+    unpinned = store.unpin(created.id)
+    assert unpinned is not None
+    assert unpinned.pinned_at is None
+    assert unpinned.updated_at == created.updated_at
+
+
+def test_pinning_again_keeps_the_first_pin_time(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    first = store.pin(created.id)
+    again = store.pin(created.id)
+    assert first is not None and again is not None
+    assert again.pinned_at == first.pinned_at
+
+
+def test_update_keeps_pin(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    pinned = store.pin(created.id)
+    updated = store.update(created.id, RecipeInput(name="감자 당근 미음"))
+    assert updated is not None and pinned is not None
+    assert updated.pinned_at == pinned.pinned_at
+
+
+def test_pin_unknown_id_returns_none(store: RecipeStore) -> None:
+    assert store.pin("nope") is None
+    assert store.unpin("nope") is None
+
+
 def test_delete_is_idempotent(store: RecipeStore) -> None:
     created = store.create(RecipeInput(name="감자 미음"))
     store.delete(created.id)
