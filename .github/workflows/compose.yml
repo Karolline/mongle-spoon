@@ -11,6 +11,8 @@ on:
       - docker-compose.yaml
       - backend/pyproject.toml
       - backend/uv.lock
+      - backend/alembic.ini
+      - backend/migrations/**
       - backend/tests/compose/**
       - frontend/package.json
       - frontend/package-lock.json

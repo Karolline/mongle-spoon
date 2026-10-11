@@ -28,7 +28,7 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
    - 빈 DB에 `upgrade head`를 한 결과가 모델(`Base.metadata`)과 같은지 확인 (Alembic의 `compare_metadata`). 모델만 바꾸고 마이그레이션 파일을 빼먹으면 이 테스트가 실패합니다. CI에서 SQLite와 PostgreSQL 둘 다 돌아갑니다.
    - `upgrade head` → `downgrade base` → `upgrade head`가 오류 없이 되는지.
    - `tests/compose`: 새 PostgreSQL에서 컨테이너가 테이블을 만들고 정상 동작하는지 (기존 스모크 테스트가 `/api/recipes` 응답을 기다리므로 테이블이 없으면 실패합니다).
-7. **CI 설정**: `.github/workflows/compose.yml`의 `paths`에 `backend/migrations/**`, `backend/alembic.ini`를 추가합니다.
+7. (완료) **CI 설정**: `.github/workflows/compose.yml`의 `paths`에 `backend/migrations/**`, `backend/alembic.ini`를 추가합니다.
 8. (완료) **문서**: `AGENTS.md`(명령어: 마이그레이션 만들기/적용, `db.py` 설명, Deployment의 "스키마 변경은 두 DB에" 주의사항), `docs/testing.md`를 고칩니다. 마이그레이션 만드는 순서: `db.py` 모델 수정 → `uv run alembic revision --autogenerate -m "..."` → 파일 읽고 확인 → `uv run alembic upgrade head` → 모델과 마이그레이션을 같이 커밋.
 9. **이미 있는 DB에 출발점 표시(stamp)**: 이미 테이블이 있는 DB는 baseline을 실행하면 안 되므로, "baseline까지 적용됨"이라고 기록만 합니다: `DATABASE_URL=<주소> uv run alembic stamp f9e81a5676ed` (baseline id). 순서가 중요합니다.
    - (완료) 로컬 SQLite 파일 (`backend/mongle_spoon.db`).
