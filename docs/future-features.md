@@ -32,7 +32,7 @@ Alembic은 DB 구조 변경(DDL)의 이력을 관리하는 도구입니다. 변�
 8. (완료) **문서**: `AGENTS.md`(명령어: 마이그레이션 만들기/적용, `db.py` 설명, Deployment의 "스키마 변경은 두 DB에" 주의사항), `docs/testing.md`를 고칩니다. 마이그레이션 만드는 순서: `db.py` 모델 수정 → `uv run alembic revision --autogenerate -m "..."` → 파일 읽고 확인 → `uv run alembic upgrade head` → 모델과 마이그레이션을 같이 커밋.
 9. **이미 있는 DB에 출발점 표시(stamp)**: 이미 테이블이 있는 DB는 baseline을 실행하면 안 되므로, "baseline까지 적용됨"이라고 기록만 합니다: `DATABASE_URL=<주소> uv run alembic stamp f9e81a5676ed` (baseline id). 순서가 중요합니다.
    - (완료) 로컬 SQLite 파일 (`backend/mongle_spoon.db`).
-   - 로컬 compose의 PostgreSQL (볼륨 `mongle-spoon-pgdata`): 다음에 `docker compose up` 하기 전에. `docker compose up -d db`로 DB만 켜고 `DATABASE_URL=postgresql://<사용자>:<비밀번호>@127.0.0.1:5432/<DB 이름> uv run alembic stamp f9e81a5676ed`. 안 하면 `app` 컨테이너가 stamp하라는 메시지를 남기고 시작하지 않습니다.
+   - (완료) 로컬 compose의 PostgreSQL (볼륨 `mongle-spoon-pgdata`): 다음에 `docker compose up` 하기 전에. `docker compose up -d db`로 DB만 켜고 `DATABASE_URL=postgresql://<사용자>:<비밀번호>@127.0.0.1:5432/<DB 이름> uv run alembic stamp f9e81a5676ed`. 안 하면 `app` 컨테이너가 stamp하라는 메시지를 남기고 시작하지 않습니다.
    - Neon dev: 이 작업을 `main`에 푸시**하기 전에**. 안 하면 dev 배포 시 baseline이 실행되어 실패합니다.
    - Neon 운영: prod로 승격**하기 전에**.
    - (새 DB는 비어 있으므로 stamp 없이 Alembic이 테이블을 만듭니다. compose 테스트의 볼륨, 테스트용 DB가 그렇습니다.)
