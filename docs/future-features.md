@@ -6,13 +6,9 @@
 
 ## A. 기존 기능을 조금 확장하는 것
 
-### 1. 특정 레시피 최상단 고정 (예: "오늘 만들 것") — ★★☆
+### 1. 특정 레시피 최상단 고정 — 완료
 
-고정한 레시피는 평소 정렬과 상관없이 목록 맨 위에 나옵니다.
-
-- 백엔드: `recipes` 테이블에 비어 있을 수 있는 `pinned_at` 날짜 컬럼 추가. `RecipeStore`가 고정된 것을 먼저(최근에 고정한 순), 나머지는 지금처럼 정렬. `models.py`와 `openapi.yaml`에 반영하고, 고정/해제 방법 추가 (수정 요청의 필드로 하거나 `POST/DELETE /api/recipes/{id}/pin`). 고정도 쓰기 작업이므로 `require_write` 필요.
-- 프론트엔드: 카드나 상세 화면에 고정 버튼 (`useUnlockGate()`로 비밀번호 확인), 카드에 고정 표시. `httpRecipeService`와 `mockRecipeService` 둘 다 수정.
-- DB: 컬럼은 Alembic 마이그레이션으로 추가합니다 (`AGENTS.md`의 Migrations). Alembic 도입 후 첫 실제 구조 변경이라, dev 배포 로그에 `Running upgrade f9e81a5676ed -> ...` 줄이 나오는지 확인합니다.
+[`product-spec.md`](../product-spec.md)의 "Pin"으로 옮겼습니다. 버튼은 카드와 상세 화면 둘 다, 개수 제한 없음, 고정해도 수정 시간은 그대로, 검색·필터에 맞을 때만 맨 위. Alembic 도입 후 첫 실제 구조 변경(`55fca9a725ba`, `pinned_at` 컬럼)이라, dev 배포 로그에 `Running upgrade f9e81a5676ed -> 55fca9a725ba` 줄이 나오는지 확인합니다.
 
 ### 2. 최근에 만든 날짜 기록, 목록을 최근에 만든 순으로 정렬 — ★★☆
 
@@ -117,7 +113,7 @@ Render가 이미 CPU·메모리 그래프와 stdout 로그를 보여 주므로, 
 
 ## 추천 순서
 
-1 → 2 → 3. 셋 다 DB 구조를 바꾸므로 dev에서 먼저 확인한 뒤 prod로 승격합니다. DB 마이그레이션 도구(Alembic)는 도입해 두었습니다.
+(1 완료) → 2 → 3. 모두 DB 구조를 바꾸므로 dev에서 먼저 확인한 뒤 prod로 승격합니다. DB 마이그레이션 도구(Alembic)는 도입해 두었습니다.
 
 6번과 7번은 기능과 관계없는 배포 정리라서 언제 해도 됩니다.
 
