@@ -18,6 +18,7 @@ const recipe: Recipe = {
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
   pinnedAt: null,
+  lastMadeOn: null,
 };
 
 const input: RecipeInput = {
@@ -138,6 +139,22 @@ describe("httpRecipeService", () => {
     expect(call(1).init.method).toBe("DELETE");
   });
 
+  it("records and clears the day a recipe was last made", async () => {
+    const made = { ...recipe, lastMadeOn: "2026-10-11" };
+    const { service, fetchFn, call } = setup(jsonResponse(made));
+    expect(await service.setLastMade("r 1", "2026-10-11")).toEqual(made);
+    expect(call(0).url).toBe("http://api.test/recipes/r%201/last-made");
+    expect(call(0).init.method).toBe("PUT");
+    expect(JSON.parse(call(0).init.body as string)).toEqual({
+      lastMadeOn: "2026-10-11",
+    });
+
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    expect(await service.clearLastMade("r 1")).toEqual(recipe);
+    expect(call(1).url).toBe("http://api.test/recipes/r%201/last-made");
+    expect(call(1).init.method).toBe("DELETE");
+  });
+
   it("throws ApiError when pinning an unknown recipe", async () => {
     const { service } = setup(jsonResponse({ detail: "Recipe not found" }, 404));
     const error = await service.pinRecipe("missing").catch((e) => e);
@@ -192,11 +209,17 @@ describe("httpRecipeService password", () => {
     await service.pinRecipe("r1");
     fetchFn.mockResolvedValue(jsonResponse(recipe));
     await service.unpinRecipe("r1");
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.setLastMade("r1", "2026-10-11");
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.clearLastMade("r1");
     fetchFn.mockResolvedValue(new Response(null, { status: 204 }));
     await service.deleteRecipe("r1");
-    expect([0, 1, 2, 3, 4, 5, 6].map((i) => header(i))).toEqual([
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => header(i))).toEqual([
       undefined,
       undefined,
+      "Bearer secret",
+      "Bearer secret",
       "Bearer secret",
       "Bearer secret",
       "Bearer secret",

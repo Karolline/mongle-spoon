@@ -24,7 +24,7 @@ function iso(daysAgo: number): string {
 }
 
 function seed(): Recipe[] {
-  const base: Array<Omit<Recipe, "id" | "pinnedAt">> = [
+  const base: Array<Omit<Recipe, "id" | "pinnedAt" | "lastMadeOn">> = [
     {
       name: "소고기 애호박 미음",
       ingredients: [
@@ -104,7 +104,12 @@ function seed(): Recipe[] {
     },
   ];
 
-  return base.map((r) => ({ ...r, id: `seed-${++counter}`, pinnedAt: null }));
+  return base.map((r) => ({
+    ...r,
+    id: `seed-${++counter}`,
+    pinnedAt: null,
+    lastMadeOn: null,
+  }));
 }
 
 /** Restores the seed recipes and locks writes again. */
@@ -139,26 +144,41 @@ function time(iso: string | null): number {
   return iso === null ? 0 : new Date(iso).getTime();
 }
 
-/** Pinned first (most recently pinned first), then most recently updated. */
-function byPinThenUpdated(a: Recipe, b: Recipe): number {
-  if ((a.pinnedAt === null) !== (b.pinnedAt === null)) {
-    return a.pinnedAt === null ? 1 : -1;
-  }
+/** Null last, otherwise the later one first. */
+function laterFirst(
+  a: string | null,
+  b: string | null,
+  value: (s: string) => number,
+): number {
+  if (a === null || b === null) return Number(a === null) - Number(b === null);
+  return value(b) - value(a);
+}
+
+// YYYY-MM-DD as a number keeps the calendar order.
+const dayNumber = (day: string) => Number(day.replaceAll("-", ""));
+
+/**
+ * Pinned first (most recently pinned first), then most recently made (never
+ * made last), then most recently updated.
+ */
+function byPinThenMadeThenUpdated(a: Recipe, b: Recipe): number {
   return (
-    time(b.pinnedAt) - time(a.pinnedAt) ||
+    laterFirst(a.pinnedAt, b.pinnedAt, time) ||
+    laterFirst(a.lastMadeOn, b.lastMadeOn, dayNumber) ||
     time(b.updatedAt) - time(a.updatedAt)
   );
 }
 
-function setPinned(id: string, pinned: boolean): Recipe {
+/** Applies `change` to a stored recipe, keeping `updatedAt`. Needs unlocking. */
+function patch(
+  id: string,
+  change: (existing: Recipe) => Partial<Recipe>,
+): Recipe {
   requireUnlocked();
   const index = store.findIndex((r) => r.id === id);
   const existing = store[index];
   if (!existing) throw new ApiError(404, `Recipe not found: ${id}`);
-  const pinnedAt = pinned
-    ? (existing.pinnedAt ?? new Date().toISOString())
-    : null;
-  store[index] = { ...existing, pinnedAt };
+  store[index] = { ...existing, ...change(existing) };
   return clone(store[index]);
 }
 
@@ -172,7 +192,7 @@ export const mockRecipeService: RecipeService = {
     const result = store
       .filter((r) => matchesSearch(r, search))
       .filter((r) => (mealTime ? r.mealTimes.includes(mealTime) : true))
-      .sort(byPinThenUpdated)
+      .sort(byPinThenMadeThenUpdated)
       .map(clone);
     return delay(result);
   },
@@ -193,6 +213,7 @@ export const mockRecipeService: RecipeService = {
       createdAt: now,
       updatedAt: now,
       pinnedAt: null,
+      lastMadeOn: null,
     };
     store = [recipe, ...store];
     return delay(clone(recipe));
@@ -221,11 +242,24 @@ export const mockRecipeService: RecipeService = {
   },
 
   async pinRecipe(id: string) {
-    return delay(setPinned(id, true));
+    return delay(
+      patch(id, (r) => ({ pinnedAt: r.pinnedAt ?? new Date().toISOString() })),
+    );
   },
 
   async unpinRecipe(id: string) {
-    return delay(setPinned(id, false));
+    return delay(patch(id, () => ({ pinnedAt: null })));
+  },
+
+  async setLastMade(id: string, day: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      throw new ApiError(422, `Not a YYYY-MM-DD date: ${day}`);
+    }
+    return delay(patch(id, () => ({ lastMadeOn: day })));
+  },
+
+  async clearLastMade(id: string) {
+    return delay(patch(id, () => ({ lastMadeOn: null })));
   },
 
   isUnlocked() {

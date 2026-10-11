@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, Pin } from "lucide-react";
+import { CalendarCheck, ChevronLeft, Pin } from "lucide-react";
 import {
   MEAL_TIME_LABELS,
   isUnauthorized,
@@ -8,7 +8,7 @@ import {
 } from "@/services";
 import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
-import { relativeKo } from "@/lib/format";
+import { dateKo, daysAgoKo, relativeKo, todayLocal } from "@/lib/format";
 import { PinnedBadge } from "./PinnedBadge";
 
 interface Props {
@@ -31,6 +31,9 @@ export function RecipeDetailScreen({
   const askToDelete = () => requireUnlock(() => setConfirming(true));
   const togglePin = (pinned: boolean) =>
     requireUnlock(() => void savePin(pinned));
+  /** Records the day (`YYYY-MM-DD`) the recipe was made; null clears it. */
+  const recordMade = (day: string | null) =>
+    requireUnlock(() => void saveLastMade(day));
 
   useEffect(() => {
     let alive = true;
@@ -54,6 +57,22 @@ export function RecipeDetailScreen({
       if (!isUnauthorized(error)) throw error;
       // The remembered password is no longer valid: ask for it again.
       togglePin(pinned);
+      return;
+    }
+    setRecipe(updated);
+  }
+
+  async function saveLastMade(day: string | null) {
+    let updated: Recipe;
+    try {
+      updated =
+        day === null
+          ? await recipeService.clearLastMade(recipeId)
+          : await recipeService.setLastMade(recipeId, day);
+    } catch (error) {
+      if (!isUnauthorized(error)) throw error;
+      // The remembered password is no longer valid: ask for it again.
+      recordMade(day);
       return;
     }
     setRecipe(updated);
@@ -91,6 +110,7 @@ export function RecipeDetailScreen({
   }
 
   const pinned = recipe.pinnedAt !== null;
+  const today = todayLocal();
 
   return (
     <AppBackground>
@@ -132,6 +152,57 @@ export function RecipeDetailScreen({
           </div>
         ) : null}
       </div>
+
+      <Section title="마지막으로 만든 날" delay="rise-2">
+        <p data-testid="last-made" className="text-[15px] font-semibold">
+          {recipe.lastMadeOn ? (
+            <>
+              {dateKo(recipe.lastMadeOn)}{" "}
+              <span className="font-normal text-ink-soft">
+                ({daysAgoKo(recipe.lastMadeOn, today)})
+              </span>
+            </>
+          ) : (
+            <span className="font-normal text-ink-soft">
+              아직 기록이 없어요
+            </span>
+          )}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => recordMade(today)}
+            className="flex items-center gap-1.5 rounded-full bg-clay px-4 py-2.5 text-[13px] font-bold text-cream"
+          >
+            <CalendarCheck className="size-4" aria-hidden />
+            오늘 만들었어요
+          </button>
+          <label className="flex items-center gap-2 rounded-full border border-ink/15 bg-white/70 py-1.5 pl-4 pr-3 text-[13px] font-medium text-ink-soft">
+            다른 날
+            <input
+              type="date"
+              aria-label="만든 날 고르기"
+              max={today}
+              value={recipe.lastMadeOn ?? ""}
+              onChange={(e) => {
+                const day = e.target.value;
+                // Ignore clearing the picker and days in the future.
+                if (day && day <= today) recordMade(day);
+              }}
+              className="min-w-0 bg-transparent text-[13px] text-ink outline-none"
+            />
+          </label>
+          {recipe.lastMadeOn ? (
+            <button
+              type="button"
+              onClick={() => recordMade(null)}
+              className="px-2 py-2.5 text-[12px] font-medium text-ink-faint underline underline-offset-2"
+            >
+              기록 지우기
+            </button>
+          ) : null}
+        </div>
+      </Section>
 
       {recipe.ingredients.length > 0 ? (
         <Section title="재료" delay="rise-2">

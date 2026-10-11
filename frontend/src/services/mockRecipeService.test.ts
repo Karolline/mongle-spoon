@@ -97,6 +97,66 @@ describe("mockRecipeService", () => {
     });
   });
 
+  describe("last made", () => {
+    it("puts recently made recipes next, most recent first, never made last", async () => {
+      const before = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      const [oldest, secondOldest] = [before.at(-1)!, before.at(-2)!];
+      await mockRecipeService.setLastMade(oldest, "2026-10-09");
+      await mockRecipeService.setLastMade(secondOldest, "2026-10-11");
+
+      const after = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      expect(after).toEqual([secondOldest, oldest, ...before.slice(0, -2)]);
+    });
+
+    it("puts pinned recipes before recently made ones", async () => {
+      await mockRecipeService.setLastMade("seed-1", "2026-10-11");
+      await mockRecipeService.pinRecipe("seed-5");
+      const ids = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      expect(ids.slice(0, 2)).toEqual(["seed-5", "seed-1"]);
+    });
+
+    it("sorts recipes made on the same day by most recently updated", async () => {
+      const before = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      for (const id of before) {
+        await mockRecipeService.setLastMade(id, "2026-10-11");
+      }
+      const after = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      expect(after).toEqual(before);
+    });
+
+    it("keeps updatedAt, can be cleared, and survives an update", async () => {
+      const original = (await mockRecipeService.getRecipe("seed-3"))!;
+      expect(original.lastMadeOn).toBeNull();
+      const made = await mockRecipeService.setLastMade("seed-3", "2026-10-11");
+      expect(made).toEqual({ ...original, lastMadeOn: "2026-10-11" });
+
+      const updated = await mockRecipeService.updateRecipe("seed-3", {
+        ...blank,
+        name: "닭안심 죽",
+      });
+      expect(updated.lastMadeOn).toBe("2026-10-11");
+
+      const cleared = await mockRecipeService.clearLastMade("seed-3");
+      expect(cleared.lastMadeOn).toBeNull();
+    });
+
+    it("rejects anything but a YYYY-MM-DD date", async () => {
+      await expect(
+        mockRecipeService.setLastMade("seed-1", "2026-10-11T09:00:00Z"),
+      ).rejects.toMatchObject({ status: 422 });
+    });
+
+    it("needs the password", async () => {
+      mockRecipeService.lock();
+      await expect(
+        mockRecipeService.setLastMade("seed-1", "2026-10-11"),
+      ).rejects.toSatisfy(isUnauthorized);
+      await expect(mockRecipeService.clearLastMade("seed-1")).rejects.toSatisfy(
+        isUnauthorized,
+      );
+    });
+  });
+
   it("searches by recipe name", async () => {
     const found = await mockRecipeService.listRecipes({ search: "바나나" });
     expect(found.map((r) => r.name)).toContain("바나나 오트밀 죽");

@@ -160,6 +160,21 @@ export function createHttpRecipeService(
       );
     },
 
+    async setLastMade(id: string, day: string) {
+      return json<Recipe>(
+        await write(`${recipePath(id)}/last-made`, {
+          method: "PUT",
+          body: JSON.stringify({ lastMadeOn: day }),
+        }),
+      );
+    },
+
+    async clearLastMade(id: string) {
+      return json<Recipe>(
+        await write(`${recipePath(id)}/last-made`, { method: "DELETE" }),
+      );
+    },
+
     isUnlocked() {
       return password !== null;
     },

@@ -11,7 +11,7 @@ import {
 import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
 import { formatAppVersion } from "@/lib/appVersion";
-import { relativeKo } from "@/lib/format";
+import { daysAgoKo, relativeKo } from "@/lib/format";
 import { PinnedBadge } from "./PinnedBadge";
 
 /**
@@ -297,7 +297,10 @@ function RecipeCard({
         <div className="flex min-w-0 items-center gap-2">
           {pinned ? <PinnedBadge /> : null}
           <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
-            {relativeKo(recipe.updatedAt)} 수정
+            {/* The list is sorted by the day made, so show that when there is one. */}
+            {recipe.lastMadeOn
+              ? `${daysAgoKo(recipe.lastMadeOn)} 만듦`
+              : `${relativeKo(recipe.updatedAt)} 수정`}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">

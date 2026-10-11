@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { formatAppVersion } from "@/lib/appVersion";
+import { dateKo, todayLocal } from "@/lib/format";
 import { ApiError } from "@/services/errors";
 import {
   MOCK_PASSWORD,
@@ -71,6 +78,19 @@ describe("RecipeListScreen", () => {
       ),
     );
     expect(screen.queryByText("고정")).not.toBeInTheDocument();
+  });
+
+  it("shows when a recipe was last made, and sorts by it", async () => {
+    await mockRecipeService.setLastMade("seed-5", todayLocal());
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+
+    const first = cards()[0]!;
+    expect(first).toHaveTextContent("두부 새송이 무름");
+    expect(within(first).getByText("오늘 만듦")).toBeInTheDocument();
+    // Never made: the card shows when it was updated instead.
+    expect(cards()[1]).toHaveTextContent("수정");
+    expect(cards()[1]).not.toHaveTextContent("만듦");
   });
 
   it("searches by ingredient name", async () => {
@@ -373,6 +393,66 @@ describe("RecipeDetailScreen", () => {
     expect((await mockRecipeService.getRecipe("seed-3"))?.pinnedAt).toBeNull();
   });
 
+  it("records today, another day, and clears the day it was made", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    const lastMade = screen.getByTestId("last-made");
+    expect(lastMade).toHaveTextContent("아직 기록이 없어요");
+    expect(
+      screen.queryByRole("button", { name: "기록 지우기" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "오늘 만들었어요" }));
+    const today = todayLocal();
+    await waitFor(() =>
+      expect(lastMade).toHaveTextContent(`${dateKo(today)} (오늘)`),
+    );
+    expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBe(today);
+
+    fireEvent.change(screen.getByLabelText("만든 날 고르기"), {
+      target: { value: "2026-01-02" },
+    });
+    await waitFor(() =>
+      expect(lastMade).toHaveTextContent("2026년 1월 2일"),
+    );
+    expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBe(
+      "2026-01-02",
+    );
+
+    await user.click(screen.getByRole("button", { name: "기록 지우기" }));
+    await waitFor(() => expect(lastMade).toHaveTextContent("아직 기록이 없어요"));
+    expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBeNull();
+  });
+
+  it("ignores a day in the future", async () => {
+    const setLastMade = vi.spyOn(mockRecipeService, "setLastMade");
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    fireEvent.change(screen.getByLabelText("만든 날 고르기"), {
+      target: { value: "2999-01-01" },
+    });
+    expect(setLastMade).not.toHaveBeenCalled();
+    expect(screen.getByTestId("last-made")).toHaveTextContent(
+      "아직 기록이 없어요",
+    );
+    setLastMade.mockRestore();
+  });
+
   it("triggers edit", async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
@@ -517,6 +597,27 @@ describe("write protection", () => {
 
     await enterPassword(user, MOCK_PASSWORD);
     await screen.findByRole("button", { name: "고정 해제" });
+  });
+
+  it("asks for the password before recording the day it was made", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    await user.click(screen.getByRole("button", { name: "오늘 만들었어요" }));
+    expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBeNull();
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await screen.findByRole("button", { name: "기록 지우기" });
+    expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBe(
+      todayLocal(),
+    );
   });
 
   it("asks for the password when saving the form, then saves", async () => {
