@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Pin, Search } from "lucide-react";
 import {
   MEAL_TIMES,
   MEAL_TIME_LABELS,
+  isUnauthorized,
   recipeService,
   type MealTime,
   type Recipe,
@@ -11,6 +12,7 @@ import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
 import { formatAppVersion } from "@/lib/appVersion";
 import { relativeKo } from "@/lib/format";
+import { PinnedBadge } from "./PinnedBadge";
 
 /**
  * Waits before each automatic retry when loading fails, e.g. while a free
@@ -73,6 +75,23 @@ export function RecipeListScreen({
     setStatus("loading");
     setReloadKey((k) => k + 1);
   };
+
+  const togglePin = (recipe: Recipe) =>
+    requireUnlock(() => void savePin(recipe));
+
+  async function savePin(recipe: Recipe) {
+    try {
+      if (recipe.pinnedAt) await recipeService.unpinRecipe(recipe.id);
+      else await recipeService.pinRecipe(recipe.id);
+    } catch (error) {
+      if (!isUnauthorized(error)) throw error;
+      // The remembered password is no longer valid: ask for it again.
+      togglePin(recipe);
+      return;
+    }
+    // Reload so the service decides the new order; the current list stays meanwhile.
+    setReloadKey((k) => k + 1);
+  }
 
   const isFiltering = search.trim().length > 0 || mealTime !== null;
   // Previous results stay on screen while a new search or filter loads.
@@ -199,6 +218,7 @@ export function RecipeListScreen({
                 ["rise-1", "rise-2", "rise-3", "rise-4"][Math.min(i, 3)]!
               }
               onClick={() => onOpenRecipe(recipe.id)}
+              onTogglePin={() => togglePin(recipe)}
             />
           ))
         )}
@@ -253,11 +273,14 @@ function RecipeCard({
   recipe,
   delayClass,
   onClick,
+  onTogglePin,
 }: {
   recipe: Recipe;
   delayClass: string;
   onClick: () => void;
+  onTogglePin: () => void;
 }) {
+  const pinned = recipe.pinnedAt !== null;
   return (
     <article
       role="button"
@@ -266,17 +289,43 @@ function RecipeCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
-      className={`rise ${delayClass} cursor-pointer rounded-3xl border border-white/60 bg-white/60 p-5 shadow-[0_14px_34px_-18px_rgba(180,86,46,0.4)] backdrop-blur-xl`}
+      className={`rise ${delayClass} cursor-pointer rounded-3xl border p-5 shadow-[0_14px_34px_-18px_rgba(180,86,46,0.4)] backdrop-blur-xl ${
+        pinned ? "border-clay/35 bg-white/75" : "border-white/60 bg-white/60"
+      }`}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
-          {relativeKo(recipe.updatedAt)} 수정
-        </span>
-        {recipe.servings ? (
-          <span className="shrink-0 rounded-full bg-clay/12 px-2.5 py-1 font-mono text-[11px] font-medium text-clay">
-            {recipe.servings}
+        <div className="flex min-w-0 items-center gap-2">
+          {pinned ? <PinnedBadge /> : null}
+          <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+            {relativeKo(recipe.updatedAt)} 수정
           </span>
-        ) : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {recipe.servings ? (
+            <span className="rounded-full bg-clay/12 px-2.5 py-1 font-mono text-[11px] font-medium text-clay">
+              {recipe.servings}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            aria-label={pinned ? "고정 해제" : "고정"}
+            onClick={(e) => {
+              // Pin only, without opening the recipe.
+              e.stopPropagation();
+              onTogglePin();
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+            className={`-my-1 -mr-1 rounded-full p-2 transition-colors duration-200 ${
+              pinned ? "text-clay" : "text-ink-faint hover:text-ink-soft"
+            }`}
+          >
+            <Pin
+              className="size-4"
+              fill={pinned ? "currentColor" : "none"}
+              aria-hidden
+            />
+          </button>
+        </div>
       </div>
       <h2 className="mt-2.5 text-[20px] font-bold leading-snug tracking-tight">
         {recipe.name}

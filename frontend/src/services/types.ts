@@ -23,9 +23,14 @@ export interface Recipe {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  /** When the recipe was pinned to the top of the list; null when not pinned. */
+  pinnedAt: string | null;
 }
 
-export type RecipeInput = Omit<Recipe, "id" | "createdAt" | "updatedAt">;
+export type RecipeInput = Omit<
+  Recipe,
+  "id" | "createdAt" | "updatedAt" | "pinnedAt"
+>;
 
 export interface ListRecipesParams {
   search?: string;
@@ -33,7 +38,10 @@ export interface ListRecipesParams {
 }
 
 /**
- * Reading is public. Creating, updating and deleting need the admin password:
+ * Lists put pinned recipes first (most recently pinned first), then the rest
+ * by most recently updated.
+ *
+ * Reading is public. Creating, updating, pinning and deleting need the admin password:
  * call `unlock` first. Writes rejected for a wrong password throw an ApiError
  * with status 401 (see `isUnauthorized`) and forget the stored password.
  */
@@ -43,6 +51,10 @@ export interface RecipeService {
   createRecipe(input: RecipeInput): Promise<Recipe>;
   updateRecipe(id: string, input: RecipeInput): Promise<Recipe>;
   deleteRecipe(id: string): Promise<void>;
+  /** Pins to the top of the list. Doesn't change `updatedAt`. */
+  pinRecipe(id: string): Promise<Recipe>;
+  /** Unpins. Doesn't change `updatedAt`. */
+  unpinRecipe(id: string): Promise<Recipe>;
 
   /** True when a password is remembered, so writes will send it. */
   isUnlocked(): boolean;

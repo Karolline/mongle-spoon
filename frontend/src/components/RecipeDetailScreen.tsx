@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Pin } from "lucide-react";
 import {
   MEAL_TIME_LABELS,
   isUnauthorized,
@@ -9,6 +9,7 @@ import {
 import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
 import { relativeKo } from "@/lib/format";
+import { PinnedBadge } from "./PinnedBadge";
 
 interface Props {
   recipeId: string;
@@ -28,6 +29,8 @@ export function RecipeDetailScreen({
   const [confirming, setConfirming] = useState(false);
   const { requireUnlock, dialog } = useUnlockGate();
   const askToDelete = () => requireUnlock(() => setConfirming(true));
+  const togglePin = (pinned: boolean) =>
+    requireUnlock(() => void savePin(pinned));
 
   useEffect(() => {
     let alive = true;
@@ -40,6 +43,21 @@ export function RecipeDetailScreen({
       alive = false;
     };
   }, [recipeId]);
+
+  async function savePin(pinned: boolean) {
+    let updated: Recipe;
+    try {
+      updated = pinned
+        ? await recipeService.unpinRecipe(recipeId)
+        : await recipeService.pinRecipe(recipeId);
+    } catch (error) {
+      if (!isUnauthorized(error)) throw error;
+      // The remembered password is no longer valid: ask for it again.
+      togglePin(pinned);
+      return;
+    }
+    setRecipe(updated);
+  }
 
   async function handleDelete() {
     try {
@@ -72,6 +90,8 @@ export function RecipeDetailScreen({
     );
   }
 
+  const pinned = recipe.pinnedAt !== null;
+
   return (
     <AppBackground>
       <button
@@ -84,9 +104,12 @@ export function RecipeDetailScreen({
 
       <div className="rise rise-1 rounded-3xl border border-white/60 bg-white/60 p-5 shadow-[0_14px_34px_-18px_rgba(180,86,46,0.4)] backdrop-blur-xl">
         <div className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
-            {relativeKo(recipe.updatedAt)} 수정
-          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            {pinned ? <PinnedBadge /> : null}
+            <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+              {relativeKo(recipe.updatedAt)} 수정
+            </span>
+          </div>
           {recipe.servings ? (
             <span className="shrink-0 rounded-full bg-clay/12 px-2.5 py-1 font-mono text-[11px] font-medium text-clay">
               {recipe.servings}
@@ -145,6 +168,21 @@ export function RecipeDetailScreen({
       ) : null}
 
       <div className="rise rise-4 mt-5 flex gap-2">
+        <button
+          onClick={() => togglePin(pinned)}
+          className={`flex shrink-0 items-center gap-1.5 rounded-2xl border px-4 py-3.5 text-[15px] font-medium ${
+            pinned
+              ? "border-clay/30 bg-clay/10 text-clay"
+              : "border-ink/15 bg-white/70 text-ink-soft"
+          }`}
+        >
+          <Pin
+            className="size-4"
+            fill={pinned ? "currentColor" : "none"}
+            aria-hidden
+          />
+          {pinned ? "고정 해제" : "고정"}
+        </button>
         <button
           onClick={() => requireUnlock(onEdit)}
           className="flex-1 rounded-2xl bg-ink py-3.5 text-[15px] font-semibold text-cream"

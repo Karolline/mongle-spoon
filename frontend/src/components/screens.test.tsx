@@ -18,12 +18,59 @@ beforeEach(async () => {
   await mockRecipeService.unlock(MOCK_PASSWORD);
 });
 
+/** The recipe cards on the list screen, top to bottom. */
+function cards(): HTMLElement[] {
+  return screen
+    .getAllByRole("heading", { level: 2 })
+    .map((heading) => heading.closest("article")!);
+}
+
 describe("RecipeListScreen", () => {
   it("shows seeded recipes sorted by most recently updated", async () => {
     render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
     await screen.findByText("소고기 애호박 미음");
     const headings = screen.getAllByRole("heading", { level: 2 });
     expect(headings[0]).toHaveTextContent("소고기 애호박 미음");
+  });
+
+  it("pins a recipe to the top from its card without opening it", async () => {
+    const user = userEvent.setup();
+    const onOpenRecipe = vi.fn();
+    render(<RecipeListScreen onOpenRecipe={onOpenRecipe} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const last = cards().at(-1)!;
+    expect(last).toHaveTextContent("두부 새송이 무름");
+    expect(within(last).queryByText("고정")).not.toBeInTheDocument();
+
+    await user.click(within(last).getByRole("button", { name: "고정" }));
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent(
+        "두부 새송이 무름",
+      ),
+    );
+    const first = cards()[0]!;
+    expect(within(first).getByText("고정")).toBeInTheDocument();
+    expect(onOpenRecipe).not.toHaveBeenCalled();
+    expect((await mockRecipeService.getRecipe("seed-5"))?.pinnedAt).not.toBeNull();
+  });
+
+  it("unpins a recipe from its card", async () => {
+    await mockRecipeService.pinRecipe("seed-5");
+    const user = userEvent.setup();
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const first = cards()[0]!;
+    expect(first).toHaveTextContent("두부 새송이 무름");
+
+    await user.click(within(first).getByRole("button", { name: "고정 해제" }));
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent(
+        "소고기 애호박 미음",
+      ),
+    );
+    expect(screen.queryByText("고정")).not.toBeInTheDocument();
   });
 
   it("searches by ingredient name", async () => {
@@ -302,6 +349,30 @@ describe("RecipeDetailScreen", () => {
     expect(await mockRecipeService.getRecipe("seed-1")).toBeNull();
   });
 
+  it("pins and unpins the recipe", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    expect(screen.queryByText("고정", { selector: "span" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "고정" }));
+    await screen.findByRole("button", { name: "고정 해제" });
+    expect(screen.getByText("고정", { selector: "span" })).toBeInTheDocument();
+    expect((await mockRecipeService.getRecipe("seed-3"))?.pinnedAt).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "고정 해제" }));
+    await screen.findByRole("button", { name: "고정" });
+    expect(screen.queryByText("고정", { selector: "span" })).not.toBeInTheDocument();
+    expect((await mockRecipeService.getRecipe("seed-3"))?.pinnedAt).toBeNull();
+  });
+
   it("triggers edit", async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
@@ -412,6 +483,40 @@ describe("write protection", () => {
     );
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
     expect(await mockRecipeService.getRecipe("seed-1")).toBeNull();
+  });
+
+  it("asks for the password before pinning from the list", async () => {
+    const user = userEvent.setup();
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const last = cards().at(-1)!;
+    await user.click(within(last).getByRole("button", { name: "고정" }));
+    expect((await mockRecipeService.getRecipe("seed-5"))?.pinnedAt).toBeNull();
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() =>
+      expect(screen.getAllByRole("heading", { level: 2 })[0]).toHaveTextContent(
+        "두부 새송이 무름",
+      ),
+    );
+  });
+
+  it("asks for the password before pinning from the detail screen", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    await user.click(screen.getByRole("button", { name: "고정" }));
+    expect((await mockRecipeService.getRecipe("seed-3"))?.pinnedAt).toBeNull();
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await screen.findByRole("button", { name: "고정 해제" });
   });
 
   it("asks for the password when saving the form, then saves", async () => {

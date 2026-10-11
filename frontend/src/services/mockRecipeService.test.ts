@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MOCK_PASSWORD,
   mockRecipeService,
@@ -35,6 +35,66 @@ describe("mockRecipeService", () => {
     const all = await mockRecipeService.listRecipes();
     const times = all.map((r) => new Date(r.updatedAt).getTime());
     expect(times).toEqual([...times].sort((a, b) => b - a));
+  });
+
+  describe("pinning", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("puts pinned recipes first, most recently pinned first", async () => {
+      const before = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      const [oldest, secondOldest] = [before.at(-1)!, before.at(-2)!];
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-01T09:00:00Z"));
+      await mockRecipeService.pinRecipe(secondOldest);
+      vi.setSystemTime(new Date("2026-10-01T09:01:00Z"));
+      await mockRecipeService.pinRecipe(oldest);
+
+      const after = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      expect(after).toEqual([oldest, secondOldest, ...before.slice(0, -2)]);
+    });
+
+    it("applies search and meal time to pinned recipes too", async () => {
+      await mockRecipeService.pinRecipe("seed-1"); // 소고기 애호박 미음: no snack
+      await mockRecipeService.pinRecipe("seed-5"); // 두부 새송이 무름: snack
+      const snacks = await mockRecipeService.listRecipes({ mealTime: "snack" });
+      expect(snacks.map((r) => r.id)).not.toContain("seed-1");
+      expect(snacks[0]!.id).toBe("seed-5");
+    });
+
+    it("keeps updatedAt, and the first pin time when pinned again", async () => {
+      const original = (await mockRecipeService.getRecipe("seed-3"))!;
+      expect(original.pinnedAt).toBeNull();
+      const pinned = await mockRecipeService.pinRecipe("seed-3");
+      expect(pinned.pinnedAt).not.toBeNull();
+      expect(pinned.updatedAt).toBe(original.updatedAt);
+      expect((await mockRecipeService.pinRecipe("seed-3")).pinnedAt).toBe(
+        pinned.pinnedAt,
+      );
+
+      const unpinned = await mockRecipeService.unpinRecipe("seed-3");
+      expect(unpinned).toEqual(original);
+    });
+
+    it("keeps the pin when a recipe is updated", async () => {
+      const pinned = await mockRecipeService.pinRecipe("seed-3");
+      const updated = await mockRecipeService.updateRecipe("seed-3", {
+        ...blank,
+        name: "닭안심 죽",
+      });
+      expect(updated.pinnedAt).toBe(pinned.pinnedAt);
+    });
+
+    it("needs the password", async () => {
+      mockRecipeService.lock();
+      await expect(mockRecipeService.pinRecipe("seed-1")).rejects.toSatisfy(
+        isUnauthorized,
+      );
+      await expect(mockRecipeService.unpinRecipe("seed-1")).rejects.toSatisfy(
+        isUnauthorized,
+      );
+    });
   });
 
   it("searches by recipe name", async () => {

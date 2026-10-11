@@ -17,6 +17,7 @@ const recipe: Recipe = {
   notes: "",
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
+  pinnedAt: null,
 };
 
 const input: RecipeInput = {
@@ -124,6 +125,26 @@ describe("httpRecipeService", () => {
     expect(call().init.method).toBe("DELETE");
   });
 
+  it("pins and unpins a recipe", async () => {
+    const pinned = { ...recipe, pinnedAt: "2026-01-02T00:00:00Z" };
+    const { service, fetchFn, call } = setup(jsonResponse(pinned));
+    expect(await service.pinRecipe("r 1")).toEqual(pinned);
+    expect(call(0).url).toBe("http://api.test/recipes/r%201/pin");
+    expect(call(0).init.method).toBe("POST");
+
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    expect(await service.unpinRecipe("r 1")).toEqual(recipe);
+    expect(call(1).url).toBe("http://api.test/recipes/r%201/pin");
+    expect(call(1).init.method).toBe("DELETE");
+  });
+
+  it("throws ApiError when pinning an unknown recipe", async () => {
+    const { service } = setup(jsonResponse({ detail: "Recipe not found" }, 404));
+    const error = await service.pinRecipe("missing").catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(404);
+  });
+
   it("throws ApiError on validation errors with structured detail", async () => {
     const { service } = setup(
       jsonResponse({ detail: [{ msg: "name must not be blank" }] }, 422),
@@ -167,11 +188,17 @@ describe("httpRecipeService password", () => {
     await service.createRecipe(input);
     fetchFn.mockResolvedValue(jsonResponse(recipe));
     await service.updateRecipe("r1", input);
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.pinRecipe("r1");
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.unpinRecipe("r1");
     fetchFn.mockResolvedValue(new Response(null, { status: 204 }));
     await service.deleteRecipe("r1");
-    expect([0, 1, 2, 3, 4].map((i) => header(i))).toEqual([
+    expect([0, 1, 2, 3, 4, 5, 6].map((i) => header(i))).toEqual([
       undefined,
       undefined,
+      "Bearer secret",
+      "Bearer secret",
       "Bearer secret",
       "Bearer secret",
       "Bearer secret",

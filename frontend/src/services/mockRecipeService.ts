@@ -24,7 +24,7 @@ function iso(daysAgo: number): string {
 }
 
 function seed(): Recipe[] {
-  const base: Array<Omit<Recipe, "id">> = [
+  const base: Array<Omit<Recipe, "id" | "pinnedAt">> = [
     {
       name: "소고기 애호박 미음",
       ingredients: [
@@ -104,7 +104,7 @@ function seed(): Recipe[] {
     },
   ];
 
-  return base.map((r) => ({ ...r, id: `seed-${++counter}` }));
+  return base.map((r) => ({ ...r, id: `seed-${++counter}`, pinnedAt: null }));
 }
 
 /** Restores the seed recipes and locks writes again. */
@@ -135,6 +135,33 @@ function matchesSearch(recipe: Recipe, search: string): boolean {
   return recipe.ingredients.some((i) => i.name.toLowerCase().includes(q));
 }
 
+function time(iso: string | null): number {
+  return iso === null ? 0 : new Date(iso).getTime();
+}
+
+/** Pinned first (most recently pinned first), then most recently updated. */
+function byPinThenUpdated(a: Recipe, b: Recipe): number {
+  if ((a.pinnedAt === null) !== (b.pinnedAt === null)) {
+    return a.pinnedAt === null ? 1 : -1;
+  }
+  return (
+    time(b.pinnedAt) - time(a.pinnedAt) ||
+    time(b.updatedAt) - time(a.updatedAt)
+  );
+}
+
+function setPinned(id: string, pinned: boolean): Recipe {
+  requireUnlocked();
+  const index = store.findIndex((r) => r.id === id);
+  const existing = store[index];
+  if (!existing) throw new ApiError(404, `Recipe not found: ${id}`);
+  const pinnedAt = pinned
+    ? (existing.pinnedAt ?? new Date().toISOString())
+    : null;
+  store[index] = { ...existing, pinnedAt };
+  return clone(store[index]);
+}
+
 function delay<T>(value: T): Promise<T> {
   return Promise.resolve(value);
 }
@@ -145,10 +172,7 @@ export const mockRecipeService: RecipeService = {
     const result = store
       .filter((r) => matchesSearch(r, search))
       .filter((r) => (mealTime ? r.mealTimes.includes(mealTime) : true))
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      )
+      .sort(byPinThenUpdated)
       .map(clone);
     return delay(result);
   },
@@ -168,6 +192,7 @@ export const mockRecipeService: RecipeService = {
       id: `recipe-${++counter}-${Math.random().toString(36).slice(2, 8)}`,
       createdAt: now,
       updatedAt: now,
+      pinnedAt: null,
     };
     store = [recipe, ...store];
     return delay(clone(recipe));
@@ -193,6 +218,14 @@ export const mockRecipeService: RecipeService = {
     requireUnlocked();
     store = store.filter((r) => r.id !== id);
     return delay(undefined);
+  },
+
+  async pinRecipe(id: string) {
+    return delay(setPinned(id, true));
+  },
+
+  async unpinRecipe(id: string) {
+    return delay(setPinned(id, false));
   },
 
   isUnlocked() {

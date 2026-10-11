@@ -150,6 +150,16 @@ export function createHttpRecipeService(
       if (!response.ok) await fail(response);
     },
 
+    async pinRecipe(id: string) {
+      return json<Recipe>(await write(`${recipePath(id)}/pin`, { method: "POST" }));
+    },
+
+    async unpinRecipe(id: string) {
+      return json<Recipe>(
+        await write(`${recipePath(id)}/pin`, { method: "DELETE" }),
+      );
+    },
+
     isUnlocked() {
       return password !== null;
     },
