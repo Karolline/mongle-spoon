@@ -24,11 +24,12 @@ Two environments, built from the same repo and `Dockerfile`. They differ only in
 |---|---|---|
 | Hosting | [Render](https://render.com) web service (Docker) | [Render](https://render.com) web service (Docker) |
 | Git branch | `main` | `prod` |
+| Render source | the GHCR image CI built | the `prod` branch (Render builds it) |
 | Deploys | every push to `main`, after CI passes | when `main` is promoted to `prod` (`git push origin main:prod`), after CI passes |
 | Database | [Neon](https://neon.tech) PostgreSQL 18, branch `dev` | [Neon](https://neon.tech) PostgreSQL 18, production branch |
 
-- **CI**: GitHub Actions runs the backend tests on SQLite and PostgreSQL 18, and the frontend test/lint/build, on every push and PR. Render deploys only after these checks pass.
-- **Container registry**: on `main`, CI also builds the Docker image and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases). Render doesn't deploy from these images yet; it builds from the `Dockerfile` itself.
+- **CI**: GitHub Actions runs the backend tests on SQLite and PostgreSQL 18, and the frontend test/lint/build, on every push and PR. Nothing deploys unless these checks pass.
+- **Container registry**: on `main`, CI also builds the Docker image and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases), then calls the Render dev service's Deploy Hook to run it. Prod still builds from the `Dockerfile` on Render.
 - The app version at the bottom of the list screen shows which version each environment runs.
 
 ## Repository layout

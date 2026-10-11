@@ -1,10 +1,13 @@
-# Tests on every push and pull request. Render deploys only after these checks
-# pass (Auto-Deploy: "After CI Checks Pass"): main to the dev service, prod to
-# the production service. Promoting main to prod reruns them on the same commit.
+# Tests on every push and pull request.
 #
 # After the tests pass on main, the image job builds the Docker image once and
-# pushes it to GHCR as sha-<commit> and dev. A vX.Y.Z tag is added to that same
-# image, never rebuilt (see the image and release-tag jobs).
+# pushes it to GHCR as sha-<commit> and dev, and deploy-dev tells the Render dev
+# service to run it. A vX.Y.Z tag is added to that same image, never rebuilt
+# (see the image and release-tag jobs).
+#
+# The Render prod service still builds from the prod branch, only after these
+# checks pass (Auto-Deploy: "After CI Checks Pass"). Promoting main to prod
+# reruns them on the same commit.
 
 name: CI
 
@@ -136,3 +139,17 @@ jobs:
           else
             echo "::notice::$src is not pushed yet. The image job of the main run adds $GITHUB_REF_NAME when it pushes it (rerun that run if it failed)."
           fi
+
+  deploy-dev:
+    name: Deploy to dev
+    # The Render dev service runs the image, not the repo, so it deploys only
+    # when this job calls its Deploy Hook. The environment records the
+    # deployment, shown under Deployments on the repo page.
+    needs: image
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Call the Render dev Deploy Hook
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEV_DEPLOY_HOOK }}
+        run: curl -fsS -X POST -G "$DEPLOY_HOOK" --data-urlencode "imgURL=$IMAGE:sha-${GITHUB_SHA::7}"
