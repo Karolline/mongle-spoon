@@ -58,13 +58,12 @@
 
 ### 6. 이미지 배포 마무리 — ★☆☆
 
-dev와 prod는 이미 GHCR 이미지로 배포됩니다 (방식은 `AGENTS.md`의 Deployment 참고). 남은 정리 두 가지:
+dev와 prod는 이미 GHCR 이미지로 배포됩니다 (방식은 `AGENTS.md`의 Deployment 참고). `prod` 브랜치는 삭제했습니다 (마지막 커밋은 `v1.0.3` 태그로 남아 있음). 남은 정리:
 
-1. **Render 설정의 이미지 주소를 움직이는 태그로 바꾸기.** 지금 Render 서비스 설정에 저장된 이미지 주소는 소스를 바꿀 때 넣은 태그(dev `sha-12ae57f`, prod `sha-42c551c`)이고, Deploy Hook으로 배포해도 바뀌지 않습니다. 그래서 Render 화면에서 Manual Deploy를 누르면 예전 이미지가 올라갑니다.
-   - dev: 설정을 `ghcr.io/karolline/mongle-spoon:dev`로 바꿉니다. 코드 변경 없음. Manual Deploy를 누르면 최신 main 이미지가 올라갑니다.
-   - prod: 승격 워크플로(`promote.yml`)가 승격한 이미지에 `prod` 태그도 붙이게 하고, 설정을 `:prod`로 바꿉니다. Manual Deploy를 누르면 지금 prod에 있는 이미지가 다시 올라갑니다.
-   - 끝나면 `AGENTS.md`의 "Manual Deploy를 쓰지 말 것" 주의사항을 고칩니다.
-2. **`prod` 브랜치 정리.** v1.0.3에 멈춰 있고 더 이상 아무것도 배포하지 않습니다. 지울지, 승격 기록용으로 남길지(승격 워크플로가 `prod` 브랜치도 그 커밋으로 옮김) 정합니다. 지우면 `AGENTS.md`, `README.md`에서 `prod` 브랜치 언급도 정리합니다.
+**Render 설정의 이미지 주소를 움직이는 태그로 바꾸기.** 지금 Render 서비스 설정에 저장된 이미지 주소는 소스를 바꿀 때 넣은 태그(dev `sha-12ae57f`, prod `sha-42c551c`)이고, Deploy Hook으로 배포해도 바뀌지 않습니다. 그래서 Render 화면에서 Manual Deploy를 누르면 예전 이미지가 올라갑니다.
+- dev: 설정을 `ghcr.io/karolline/mongle-spoon:dev`로 바꿉니다. 코드 변경 없음. Manual Deploy를 누르면 최신 main 이미지가 올라갑니다.
+- prod: 승격 워크플로(`promote.yml`)가 승격한 이미지에 `prod` 태그도 붙이게 하고, 설정을 `:prod`로 바꿉니다. Manual Deploy를 누르면 지금 prod에 있는 이미지가 다시 올라갑니다.
+- 끝나면 `AGENTS.md`의 "Manual Deploy를 쓰지 말 것" 주의사항을 고칩니다.
 
 ### 7. 이미지 빌드 캐시 추가 — ★☆☆
 

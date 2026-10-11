@@ -78,7 +78,7 @@ Two environments on Render, both running the Docker image CI builds once and pus
 - Roll back: run the same workflow with an older tag (`sha-<commit>` or `vX.Y.Z`).
 - Which commit each environment runs: Deployments on the GitHub repo page (it records what was sent to Render, not whether Render's deploy succeeded; Render's Events show that), and the app version at the bottom of the list screen.
 - Don't redeploy from the Render dashboard (Manual Deploy): it uses the image URL saved in the service settings, which is the tag from when the source was switched (dev `sha-12ae57f`, prod `sha-42c551c`). A Deploy Hook's `imgURL` doesn't update that setting. Rerun the CI run or the promotion instead.
-- The `prod` branch no longer deploys anything. It stays at v1.0.3 until the user decides what to do with it ([`docs/future-features.md`](docs/future-features.md) item 6). Don't push to it.
+- There is no `prod` branch (it was deleted once prod moved to images; `v1.0.3` marks its last commit). `main` is the only long-lived branch; release versions are git tags.
 - Never point dev and prod at the same database.
 - A schema change has to reach both databases (`make_engine()` only creates missing tables).
 
