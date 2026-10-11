@@ -7,6 +7,10 @@
 # promote.yml.
 
 name: CI
+# A tag push gets its own title in the Actions list, so it isn't mistaken for
+# the main run of the same commit. Whitespace keeps GitHub's default title
+# (the commit message, or the PR title).
+run-name: "${{ github.ref_type == 'tag' && format('Release {0}: tag the image', github.ref_name) || ' ' }}"
 
 on:
   push:

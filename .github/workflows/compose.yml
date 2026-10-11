@@ -5,6 +5,9 @@ name: Compose
 
 on:
   push:
+    # Branches only: a version tag points at a commit main already checked,
+    # and GitHub ignores `paths` for tag pushes, so it would always run again.
+    branches: ["**"]
     paths: &image-paths
       - Dockerfile
       - .dockerignore
