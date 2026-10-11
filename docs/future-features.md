@@ -100,7 +100,7 @@ main push → GitHub Actions: 테스트 → 이미지 빌드 → 태그(sha-<커
 5. Render dev 서비스에서 Deploy Hook URL을 복사해 GitHub 저장소 Secret(예: `RENDER_DEV_DEPLOY_HOOK`)으로 저장합니다.
 6. Render dev 서비스의 소스를 Git 저장소에서 GHCR 이미지로 바꿉니다. 바꾸는 즉시 배포되므로 4번에서 이미지가 이미 올라가 있어야 합니다. 앱이 정상인지, 목록 화면 아래 버전과 커밋이 맞는지 확인합니다.
 7. 빌드 job 끝에 dev Deploy Hook 호출 추가 (`imgURL`로 방금 빌드한 `sha-<커밋>` 태그 지정, job에 `environment: dev`). main에 push해서 테스트 → 빌드 → dev 배포가 자동으로 이어지는지, 저장소 첫 화면 Deployments에 dev가 보이는지 확인합니다.
-8. prod Deploy Hook URL을 Secret(예: `RENDER_PROD_DEPLOY_HOOK`)으로 저장하고, 수동 실행(`workflow_dispatch`) 승격 워크플로를 만듭니다. 태그 입력칸(비우면 `dev`)으로 이미지를 정해 digest로 고정하고, 어느 커밋인지 로그에 표시한 뒤 prod Deploy Hook에 전달합니다. job에 `environment: prod`. 이 워크플로에는 빌드 단계가 없습니다.
+8. prod Deploy Hook URL을 Secret(예: `RENDER_PROD_DEPLOY_HOOK`)으로 저장하고, 수동 실행(`workflow_dispatch`) 승격 워크플로를 만듭니다. 태그 입력칸(비우면 `dev`)으로 이미지를 정해 digest로 고정하고, 어느 커밋인지 로그에 표시한 뒤 prod Deploy Hook에 전달합니다. 이 워크플로에는 빌드 단계가 없습니다. Deployments 기록은 `environment: prod` 대신 GitHub API로 남깁니다 (`environment:`를 쓰면 승격한 이미지의 커밋이 아니라 워크플로를 실행한 시점의 main 최신 커밋이 기록되기 때문).
 9. Render prod 서비스의 소스를 GHCR 이미지로 바꿉니다. 이때는 dev에서 확인한 태그를 지정합니다. 그다음 승격 워크플로를 한 번 실행해 보고, Deployments에 prod가 보이는지 확인합니다.
 10. 문서 정리: `AGENTS.md`의 Deployment 섹션(승격 방법, `prod` 브랜치 역할), `ci.yml` 상단 주석, 필요하면 `README.md`. 정한 대로 `prod` 브랜치를 정리합니다.
 

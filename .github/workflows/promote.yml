@@ -1,0 +1,68 @@
+# Promotes an image that is already on GHCR to the Render prod service. Nothing
+# is built here: prod runs the exact image dev ran. Run it from the Actions tab
+# (Promote to prod → Run workflow).
+
+name: Promote to prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag, e.g. sha-6e10ccd or v1.0.4. Empty: the latest main build (dev tag)."
+        required: false
+        default: ""
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/karolline/mongle-spoon
+
+jobs:
+  promote:
+    name: Promote to prod
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+    steps:
+      # Pin the tag to a digest now, so a main push during this run can't
+      # change which image prod gets.
+      - name: Resolve the image
+        id: image
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          ref="$IMAGE:${TAG:-dev}"
+          digest=$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}')
+          commit=$(docker buildx imagetools inspect "$ref" --format '{{index .Image.Config.Labels "org.opencontainers.image.revision"}}')
+          if [ -z "$commit" ] || [ "$commit" = "<no value>" ]; then
+            echo "::error::$ref has no org.opencontainers.image.revision label, so its commit is unknown."
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Promoting to prod"
+            echo "- Tag: \`${TAG:-dev}\`"
+            echo "- Commit: [\`${commit::7}\`](https://github.com/$GITHUB_REPOSITORY/commit/$commit)"
+            echo "- Digest: \`$digest\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Promoting commit ${commit::7} ($ref)"
+
+      - name: Call the Render prod Deploy Hook
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_PROD_DEPLOY_HOOK }}
+        run: curl -fsS -X POST -G "$DEPLOY_HOOK" --data-urlencode "imgURL=$IMAGE@${{ steps.image.outputs.digest }}"
+
+      # Recorded by hand rather than with `environment: prod`, which would
+      # record the commit the workflow ran from (latest main), not the image's.
+      - name: Record the deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ steps.image.outputs.commit }}
+        run: |
+          id=$(jq -n --arg ref "$COMMIT" \
+                '{ref: $ref, environment: "prod", auto_merge: false, required_contexts: [], description: "Promoted image"}' \
+              | gh api "repos/$GITHUB_REPOSITORY/deployments" --input - --jq .id)
+          gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" -f state=success > /dev/null
