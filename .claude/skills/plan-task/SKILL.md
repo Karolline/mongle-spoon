@@ -10,10 +10,10 @@ The developer agent can't ask the user anything while it works, so every questio
 
 ## 1. Understand the request
 
-- Always read `docs/future-features.md` (the user's Korean wishlist) first, whatever the request is.
-- The request comes from the arguments. If it's empty, offer the wishlist items as choices (with their difficulty) and ask what to build.
-- If the request matches a wishlist item, even loosely worded, say which one and plan from it: its backend/frontend/DB notes are the starting point, and its "시작 전에 정할 것" points are questions for step 2. The wishlist says an item moves into `product-spec.md` when work starts, so the brief includes adding it to the spec. Never remove the item from the wishlist while planning, and never put that in the brief: the main session removes it only after the branch passed review and was merged into `main` (step 6).
-- If the request isn't on the wishlist but touches an item (for example it would make a planned item harder, or overlaps with one), point that out.
+- Always read the backlog first, whatever the request is: the open GitHub issues (`gh issue list --state open --limit 100`, then `gh issue view <N>` for the ones that matter). They are in Korean; see Backlog in `AGENTS.md`.
+- The request comes from the arguments. If it's empty, offer the open issues as choices (number, title, difficulty label) and ask what to build.
+- If the request matches an issue, even loosely worded (or names it, like `#1`), say which one and plan from it: its backend/frontend/DB notes are the starting point, and its "시작 전에 정할 것" points are questions for step 2. A feature moves into `product-spec.md` when work starts, so the brief includes adding it to the spec. Never close, edit or comment on the issue while planning, and never ask the developer to: the main session closes it only after the branch passed review and was merged into `main` (step 7).
+- If the request isn't in the backlog but touches an issue (for example it would make a planned issue harder, or overlaps with one), point that out.
 - Read `product-spec.md`, `AGENTS.md`, and the code the task touches (screens, services, store, models, `openapi.yaml`), so the questions are about real gaps, not things the code already answers.
 
 ## 2. Ask
@@ -73,7 +73,7 @@ Save it to the scratchpad directory as `task-<short-name>.md` and show it to the
 - <each answer from step 2>
 
 ## Release
-- Version vX.Y.Z (<MAJOR|MINOR|PATCH>: <reason>). Don't bump the version, edit `CHANGELOG.md`, or touch `docs/future-features.md`: the main session does those after merging.
+- Version vX.Y.Z (<MAJOR|MINOR|PATCH>: <reason>). Issue: #N (or "none"). Don't bump the version, edit `CHANGELOG.md`, or write `Closes #N`: the main session does those after merging.
 ```
 
 Summarize the brief for the user in Korean and ask for an explicit OK. Change it until they agree.
@@ -93,6 +93,6 @@ On OK, launch the developer agent with the Agent tool: `subagent_type: "develope
    - run all tests on `main`;
    - remove the worktree and delete the branch (`git worktree remove <path>`, `git branch -d <branch>`).
    Don't push.
-6. Only now, after review passed and the merge into `main` is done: if the task came from `docs/future-features.md`, remove its item there (keep the rest of the file, renumber items and fix references to them such as in "추천 순서", in Korean) and commit it on `main`.
-7. Release the version decided in the brief, following "Releasing a version" in `docs/versioning.md`: add it to `CHANGELOG.md`, update the version in every file, run all tests, commit `Release vX.Y.Z`, and tag it (`git tag -a vX.Y.Z -m "vX.Y.Z"`). Tell the user the version in one Korean line with the reason.
+6. Only now, after review passed and the merge into `main` is done, release the version decided in the brief, following "Releasing a version" in `docs/versioning.md`: add it to `CHANGELOG.md`, update the version in every file, run all tests, commit `Release vX.Y.Z`, and tag it (`git tag -a vX.Y.Z -m "vX.Y.Z"`). Tell the user the version in one Korean line with the reason.
+7. Close the issue through that release commit: if the task came from an issue, its message ends with `Closes #N` (before the Co-Authored-By line), so GitHub closes the issue when the user pushes `main`. Don't close it with `gh`. If the task only finished part of the issue, write `Refs #N` instead and tell the user what's left, so they can decide whether to edit the issue.
 8. Right away, write the release note with the `release-notes` skill (target the new tag, previous tag the latest released one) and show it to the user. Publishing is public: never publish until the user explicitly OKs the note. The tag must be on GitHub first, and the user pushes themselves, so ask them to push (`git push && git push --tags`), then publish once they confirm both.

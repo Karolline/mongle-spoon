@@ -10,7 +10,11 @@ The spec is [`product-spec.md`](product-spec.md). Read it before starting any ta
 ## Language
 
 - All UI text is in Korean.
-- All code, comments, commit messages, and docs are in English. Exception: [`docs/future-features.md`](docs/future-features.md) (the user's own wishlist) is in Korean.
+- All code, comments, commit messages, and docs are in English. Exception: backlog issues on GitHub are in Korean.
+
+## Backlog
+
+The backlog is [GitHub Issues](https://github.com/Karolline/mongle-spoon/issues) (open issues, in Korean), labeled by difficulty (`난이도: 쉬움`/`보통`/`어려움`) and area (`기능 확장`, `새 기능`, `배포`, `관찰`). An issue's "시작 전에 정할 것" lists what to decide before starting. When work on an issue starts, its feature moves into `product-spec.md`. The issue is closed by a `Closes #N` line in the release commit after its work is merged into `main`, so it closes when the user pushes. Create, edit, close or comment on issues only when the user asks (the repo is public).
 
 ## Tech stack (fixed, do not change)
 
@@ -87,7 +91,7 @@ Two environments on Render, both running the Docker image CI builds once and pus
 
 ## Agents and skills (Claude Code)
 
-- `.claude/skills/plan-task/`: `/plan-task <what to build>`. Plans with the user in the main conversation (agents can't ask the user questions), shows planned screen changes as a mockup page, writes a task brief, hands it to the developer agent in the background, then reviews and merges. The release version is decided while planning; after merging, the main session (never the developer) removes the item from `docs/future-features.md`, releases the version, and writes the release note, published only after the user OKs it.
+- `.claude/skills/plan-task/`: `/plan-task <what to build>`. Plans with the user in the main conversation (agents can't ask the user questions), shows planned screen changes as a mockup page, writes a task brief, hands it to the developer agent in the background, then reviews and merges. The release version is decided while planning; after merging, the main session (never the developer) releases the version (its commit closes the issue), and writes the release note, published only after the user OKs it.
 - `.claude/agents/developer.md`: builds one brief in a git worktree on its own branch, with tests and small commits. Never commits to `main`.
 - `.claude/agents/reviewer.md`: read-only review of a branch or uncommitted changes against this file, the spec and the brief.
 - `.claude/skills/release-notes/`: GitHub release notes.
