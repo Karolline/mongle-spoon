@@ -2,6 +2,10 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.1.1 (2026-10-12)
+
+- The list shows pinned recipes first, then the rest by the more recent of the day they were last made and their last update. A recipe just added or edited now comes right after the pinned ones, and never-made recipes are no longer always last. On the same day, the update counts as more recent.
+
 ## v1.1.0 (2026-10-11)
 
 - Recipes can be pinned to the top of the list, from a card's pin button or the detail screen's [고정] button. Pinned cards show a 고정 badge.
