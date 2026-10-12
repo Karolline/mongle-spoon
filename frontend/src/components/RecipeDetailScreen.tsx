@@ -219,7 +219,7 @@ export function RecipeDetailScreen({
           </button>
           {/* Looks like a button; the real date input covers it, invisible.
               It stays 16px so iPhone Safari doesn't zoom when it's tapped. */}
-          <label className="relative flex items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-4 py-2.5 text-[13px] font-medium text-ink-soft ring-clay/40 focus-within:ring-2">
+          <label className="relative flex items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-4 py-2.5 text-[13px] font-medium text-ink-soft ring-clay/40 has-[:focus-visible]:ring-2">
             <Calendar className="size-4" aria-hidden />
             다른 날
             <input
