@@ -120,7 +120,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
         취소
       </button>
 
-      <h1 className="rise mb-5 text-[26px] font-black leading-none tracking-tight">
+      <h1 className="rise mb-5 text-[26px] font-black leading-tight tracking-tight">
         {isEdit ? "레시피 수정" : "새 레시피"}
       </h1>
 

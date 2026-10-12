@@ -104,7 +104,7 @@ export function RecipeListScreen({
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-faint">
             내 레시피
           </p>
-          <h1 className="mt-1 truncate text-[28px] font-black leading-none tracking-tight">
+          <h1 className="mt-1 truncate text-[28px] font-black leading-tight tracking-tight">
             몽글스푼
           </h1>
         </div>

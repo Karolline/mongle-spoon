@@ -40,6 +40,15 @@ describe("RecipeListScreen", () => {
     expect(headings[0]).toHaveTextContent("소고기 애호박 미음");
   });
 
+  it("gives the truncated title room for its descenders", async () => {
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const title = screen.getByRole("heading", { level: 1, name: "몽글스푼" });
+    // `truncate` hides overflow, so `leading-none` cut off the bottom.
+    expect(title).toHaveClass("truncate", "leading-tight");
+    expect(title).not.toHaveClass("leading-none");
+  });
+
   it("pins a recipe to the top from its card without opening it", async () => {
     const user = userEvent.setup();
     const onOpenRecipe = vi.fn();
