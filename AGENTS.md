@@ -85,6 +85,13 @@ Two environments on Render, both running the Docker image CI builds once and pus
 - Never point dev and prod at the same database.
 - Schema changes go through Alembic migrations, never by hand. Every existing database (local SQLite, local compose, Neon dev, Neon prod) is stamped with the baseline, so new migrations apply automatically. Each environment migrates its own database when its container starts, so a push migrates the dev database and a promotion migrates prod. Rolling back the image doesn't roll back the database: keep migrations compatible with the previous image (adding a nullable column is fine; drop or rename a column in two releases).
 
+## Agents and skills (Claude Code)
+
+- `.claude/skills/plan-task/`: `/plan-task <what to build>`. Plans with the user in the main conversation (agents can't ask the user questions), writes a task brief, hands it to the developer agent in the background, then reviews and merges.
+- `.claude/agents/developer.md`: builds one brief in a git worktree on its own branch, with tests and small commits. Never commits to `main`.
+- `.claude/agents/reviewer.md`: read-only review of a branch or uncommitted changes against this file, the spec and the brief.
+- `.claude/skills/release-notes/`: GitHub release notes.
+
 ## Rules
 
 - Every backend call from the frontend goes through one services layer, which has a mock implementation with the same interface.
