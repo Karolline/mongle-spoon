@@ -69,8 +69,8 @@ All frontend tests are unit and component tests; none need a running backend.
 
 | File | What it covers |
 |---|---|
-| `services/mockRecipeService.test.ts` | The in-memory mock: search, meal-time filtering, sorting (pinned first, then by the later of the day last made and the last update), CRUD, pin/unpin, recording the day made, and rejecting writes until unlocked. |
-| `lib/format.test.ts` | Date helpers: today's date in the device's time zone, and "오늘" / "어제" / "3일 전" labels for the day a recipe was made. |
+| `services/mockRecipeService.test.ts` | The in-memory mock: search, meal-time filtering, sorting (pinned first, then by the later of the day last made and the last update), CRUD, pin/unpin, recording the day made, setting and clearing the leftover amount (0-999 only, keeps `updatedAt` and the list order) and saving its unit, and rejecting writes until unlocked. |
+| `lib/format.test.ts` | Date helpers: today's date in the device's time zone, and "오늘" / "어제" / "3일 전" labels for the day a recipe was made. Leftover helpers: the unit shown ("개" when empty) and parsing a typed amount (whole numbers 0-999). |
 | `services/httpRecipeService.test.ts` | The HTTP service with a stubbed `fetch` and in-memory password storage: URLs, query parameters, request bodies, error handling, and the password (sent on writes only, remembered, forgotten on 401). |
 | `components/screens.test.tsx` | The list, detail, and form screens rendered against the mock service. Most tests start unlocked; the "write protection" group covers the password dialog. |
 

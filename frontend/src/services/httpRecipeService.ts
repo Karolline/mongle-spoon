@@ -175,6 +175,21 @@ export function createHttpRecipeService(
       );
     },
 
+    async setLeftover(id: string, amount: number) {
+      return json<Recipe>(
+        await write(`${recipePath(id)}/leftover`, {
+          method: "PUT",
+          body: JSON.stringify({ leftover: amount }),
+        }),
+      );
+    },
+
+    async clearLeftover(id: string) {
+      return json<Recipe>(
+        await write(`${recipePath(id)}/leftover`, { method: "DELETE" }),
+      );
+    },
+
     isUnlocked() {
       return password !== null;
     },

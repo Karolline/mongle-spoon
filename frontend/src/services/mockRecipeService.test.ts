@@ -14,6 +14,7 @@ const blank: RecipeInput = {
   servings: "",
   mealTimes: [],
   notes: "",
+  leftoverUnit: "",
 };
 
 describe("mockRecipeService", () => {
@@ -205,6 +206,72 @@ describe("mockRecipeService", () => {
         mockRecipeService.setLastMade("seed-1", "2026-10-11"),
       ).rejects.toSatisfy(isUnauthorized);
       await expect(mockRecipeService.clearLastMade("seed-1")).rejects.toSatisfy(
+        isUnauthorized,
+      );
+    });
+  });
+
+  describe("leftover", () => {
+    it("is seeded for some recipes, with and without a unit", async () => {
+      const all = await mockRecipeService.listRecipes();
+      expect(all.some((r) => r.leftover !== null && r.leftoverUnit)).toBe(true);
+      expect(all.some((r) => r.leftover !== null && !r.leftoverUnit)).toBe(true);
+      expect(all.some((r) => r.leftover === null)).toBe(true);
+    });
+
+    it("sets and clears the amount, keeping updatedAt", async () => {
+      const original = (await mockRecipeService.getRecipe("seed-2"))!;
+      expect(original.leftover).toBeNull();
+      const left = await mockRecipeService.setLeftover("seed-2", 4);
+      expect(left).toEqual({ ...original, leftover: 4 });
+      expect((await mockRecipeService.setLeftover("seed-2", 0)).leftover).toBe(0);
+      expect((await mockRecipeService.setLeftover("seed-2", 999)).leftover).toBe(999);
+
+      const cleared = await mockRecipeService.clearLeftover("seed-2");
+      expect(cleared).toEqual(original);
+    });
+
+    it("doesn't move the recipe in the list", async () => {
+      const before = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      await mockRecipeService.setLeftover(before.at(-1)!, 3);
+      const after = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      expect(after).toEqual(before);
+    });
+
+    it("keeps the amount on update and saves the unit", async () => {
+      await mockRecipeService.setLeftover("seed-2", 3);
+      const updated = await mockRecipeService.updateRecipe("seed-2", {
+        ...blank,
+        name: "단호박 매시",
+        leftoverUnit: "통",
+      });
+      expect(updated.leftover).toBe(3);
+      expect(updated.leftoverUnit).toBe("통");
+
+      const created = await mockRecipeService.createRecipe({
+        ...blank,
+        name: "감자 미음",
+        leftoverUnit: "큐브",
+      });
+      expect(created.leftover).toBeNull();
+      expect(created.leftoverUnit).toBe("큐브");
+    });
+
+    it("rejects anything but a whole number from 0 to 999", async () => {
+      for (const amount of [-1, 1000, 2.5, Number.NaN]) {
+        await expect(
+          mockRecipeService.setLeftover("seed-1", amount),
+        ).rejects.toMatchObject({ status: 422 });
+      }
+      expect((await mockRecipeService.getRecipe("seed-1"))!.leftover).toBe(5);
+    });
+
+    it("needs the password", async () => {
+      mockRecipeService.lock();
+      await expect(mockRecipeService.setLeftover("seed-1", 1)).rejects.toSatisfy(
+        isUnauthorized,
+      );
+      await expect(mockRecipeService.clearLeftover("seed-1")).rejects.toSatisfy(
         isUnauthorized,
       );
     });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { dateKo, daysAgoKo, todayLocal } from "./format";
+import {
+  dateKo,
+  daysAgoKo,
+  leftoverUnitKo,
+  parseLeftover,
+  todayLocal,
+} from "./format";
 
 describe("todayLocal", () => {
   it("uses the device's calendar date, zero-padded", () => {
@@ -36,5 +42,27 @@ describe("daysAgoKo", () => {
   it("counts across months and years", () => {
     expect(daysAgoKo("2026-09-30", "2026-10-01")).toBe("어제");
     expect(daysAgoKo("2025-12-31", "2026-01-01")).toBe("어제");
+  });
+});
+
+describe("leftoverUnitKo", () => {
+  it("uses the recipe's unit, or 개 when it has none", () => {
+    expect(leftoverUnitKo("큐브")).toBe("큐브");
+    expect(leftoverUnitKo("")).toBe("개");
+    expect(leftoverUnitKo("  ")).toBe("개");
+  });
+});
+
+describe("parseLeftover", () => {
+  it("accepts whole numbers from 0 to 999", () => {
+    expect(parseLeftover("0")).toBe(0);
+    expect(parseLeftover(" 12 ")).toBe(12);
+    expect(parseLeftover("999")).toBe(999);
+  });
+
+  it("rejects anything else", () => {
+    for (const text of ["", " ", "-1", "1000", "2.5", "1e2", "abc", "3개"]) {
+      expect(parseLeftover(text)).toBeNull();
+    }
   });
 });

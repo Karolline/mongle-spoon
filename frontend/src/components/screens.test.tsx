@@ -281,6 +281,7 @@ describe("RecipeFormScreen", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "아침" }));
     await user.type(screen.getByLabelText("분량"), "2회분");
+    await user.type(screen.getByLabelText("남은 양 단위"), " 큐브 ");
     await user.click(screen.getByRole("button", { name: "저장" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
@@ -289,6 +290,29 @@ describe("RecipeFormScreen", () => {
     expect(created?.ingredients).toEqual([{ name: "감자", amount: "1/2개" }]);
     expect(created?.mealTimes).toEqual(["breakfast"]);
     expect(created?.servings).toBe("2회분");
+    expect(created?.leftoverUnit).toBe("큐브");
+    expect(created?.leftover).toBeNull();
+  });
+
+  it("edits the leftover unit and keeps the amount", async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    render(
+      <RecipeFormScreen recipeId="seed-1" onSaved={onSaved} onCancel={vi.fn()} />,
+    );
+    const unitInput = await screen.findByLabelText("남은 양 단위");
+    expect(unitInput).toHaveValue("큐브");
+    expect(unitInput).toHaveAttribute("placeholder", "개 (예: 큐브, 통)");
+    // The amount itself isn't in the form.
+    expect(screen.queryByLabelText("남은 양 입력")).not.toBeInTheDocument();
+    await user.clear(unitInput);
+    await user.type(unitInput, "통");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith("seed-1"));
+    const saved = await mockRecipeService.getRecipe("seed-1");
+    expect(saved?.leftoverUnit).toBe("통");
+    expect(saved?.leftover).toBe(5);
   });
 
   it("edits an existing recipe", async () => {

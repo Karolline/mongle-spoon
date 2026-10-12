@@ -1,8 +1,9 @@
-import type {
-  ListRecipesParams,
-  Recipe,
-  RecipeInput,
-  RecipeService,
+import {
+  LEFTOVER_MAX,
+  type ListRecipesParams,
+  type Recipe,
+  type RecipeInput,
+  type RecipeService,
 } from "./types";
 import { ApiError } from "./errors";
 
@@ -24,7 +25,10 @@ function iso(daysAgo: number): string {
 }
 
 function seed(): Recipe[] {
-  const base: Array<Omit<Recipe, "id" | "pinnedAt" | "lastMadeOn">> = [
+  const base: Array<
+    Omit<Recipe, "id" | "pinnedAt" | "lastMadeOn" | "leftover" | "leftoverUnit"> &
+      Partial<Pick<Recipe, "leftover" | "leftoverUnit">>
+  > = [
     {
       name: "소고기 애호박 미음",
       ingredients: [
@@ -40,6 +44,8 @@ function seed(): Recipe[] {
       notes: "체에 한 번 걸러주면 훨씬 부드러워요.",
       createdAt: iso(20),
       updatedAt: iso(1),
+      leftover: 5,
+      leftoverUnit: "큐브",
     },
     {
       name: "단호박 고구마 매시",
@@ -71,6 +77,7 @@ function seed(): Recipe[] {
       notes: "브로콜리는 줄기를 빼고 사용해요.",
       createdAt: iso(15),
       updatedAt: iso(6),
+      leftover: 2,
     },
     {
       name: "바나나 오트밀 죽",
@@ -109,6 +116,8 @@ function seed(): Recipe[] {
     id: `seed-${++counter}`,
     pinnedAt: null,
     lastMadeOn: null,
+    leftover: r.leftover ?? null,
+    leftoverUnit: r.leftoverUnit ?? "",
   }));
 }
 
@@ -222,6 +231,7 @@ export const mockRecipeService: RecipeService = {
       updatedAt: now,
       pinnedAt: null,
       lastMadeOn: null,
+      leftover: null,
     };
     store = [recipe, ...store];
     return delay(clone(recipe));
@@ -268,6 +278,20 @@ export const mockRecipeService: RecipeService = {
 
   async clearLastMade(id: string) {
     return delay(patch(id, () => ({ lastMadeOn: null })));
+  },
+
+  async setLeftover(id: string, amount: number) {
+    if (!Number.isInteger(amount) || amount < 0 || amount > LEFTOVER_MAX) {
+      throw new ApiError(
+        422,
+        `Not a whole number from 0 to ${LEFTOVER_MAX}: ${amount}`,
+      );
+    }
+    return delay(patch(id, () => ({ leftover: amount })));
+  },
+
+  async clearLeftover(id: string) {
+    return delay(patch(id, () => ({ leftover: null })));
   },
 
   isUnlocked() {

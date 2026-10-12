@@ -27,12 +27,23 @@ export interface Recipe {
   pinnedAt: string | null;
   /** The day the recipe was last made (`YYYY-MM-DD`, no time zone); null when never recorded. */
   lastMadeOn: string | null;
+  /** How much of the made batch is left (0-999); null when not recorded. */
+  leftover: number | null;
+  /** Unit of `leftover` (e.g. "큐브"); empty means the default, "개". */
+  leftoverUnit: string;
 }
 
+/** Editable fields. The amount itself is changed with `setLeftover`. */
 export type RecipeInput = Omit<
   Recipe,
-  "id" | "createdAt" | "updatedAt" | "pinnedAt" | "lastMadeOn"
+  "id" | "createdAt" | "updatedAt" | "pinnedAt" | "lastMadeOn" | "leftover"
 >;
+
+/** The largest leftover amount that can be recorded. */
+export const LEFTOVER_MAX = 999;
+
+/** Unit shown when a recipe has none. */
+export const DEFAULT_LEFTOVER_UNIT = "개";
 
 export interface ListRecipesParams {
   search?: string;
@@ -65,6 +76,13 @@ export interface RecipeService {
   setLastMade(id: string, day: string): Promise<Recipe>;
   /** Clears the day the recipe was last made. Doesn't change `updatedAt`. */
   clearLastMade(id: string): Promise<Recipe>;
+  /**
+   * Records how much is left: a whole number from 0 to `LEFTOVER_MAX`
+   * (the new amount, not a change). Doesn't change `updatedAt`.
+   */
+  setLeftover(id: string, amount: number): Promise<Recipe>;
+  /** Clears the leftover amount (not recorded). Doesn't change `updatedAt`. */
+  clearLeftover(id: string): Promise<Recipe>;
 
   /** True when a password is remembered, so writes will send it. */
   isUnlocked(): boolean;

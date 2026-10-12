@@ -19,6 +19,8 @@ const recipe: Recipe = {
   updatedAt: "2026-01-01T00:00:00Z",
   pinnedAt: null,
   lastMadeOn: null,
+  leftover: null,
+  leftoverUnit: "큐브",
 };
 
 const input: RecipeInput = {
@@ -28,6 +30,7 @@ const input: RecipeInput = {
   servings: "",
   mealTimes: ["breakfast"],
   notes: "",
+  leftoverUnit: "큐브",
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -155,6 +158,27 @@ describe("httpRecipeService", () => {
     expect(call(1).init.method).toBe("DELETE");
   });
 
+  it("sets and clears the leftover amount", async () => {
+    const left = { ...recipe, leftover: 5 };
+    const { service, fetchFn, call } = setup(jsonResponse(left));
+    expect(await service.setLeftover("r 1", 5)).toEqual(left);
+    expect(call(0).url).toBe("http://api.test/recipes/r%201/leftover");
+    expect(call(0).init.method).toBe("PUT");
+    expect(JSON.parse(call(0).init.body as string)).toEqual({ leftover: 5 });
+
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    expect(await service.clearLeftover("r 1")).toEqual(recipe);
+    expect(call(1).url).toBe("http://api.test/recipes/r%201/leftover");
+    expect(call(1).init.method).toBe("DELETE");
+  });
+
+  it("throws ApiError when the leftover amount is rejected", async () => {
+    const { service } = setup(jsonResponse({ detail: [{ msg: "too big" }] }, 422));
+    const error = await service.setLeftover("r1", 1000).catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(422);
+  });
+
   it("throws ApiError when pinning an unknown recipe", async () => {
     const { service } = setup(jsonResponse({ detail: "Recipe not found" }, 404));
     const error = await service.pinRecipe("missing").catch((e) => e);
@@ -213,11 +237,17 @@ describe("httpRecipeService password", () => {
     await service.setLastMade("r1", "2026-10-11");
     fetchFn.mockResolvedValue(jsonResponse(recipe));
     await service.clearLastMade("r1");
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.setLeftover("r1", 3);
+    fetchFn.mockResolvedValue(jsonResponse(recipe));
+    await service.clearLeftover("r1");
     fetchFn.mockResolvedValue(new Response(null, { status: 204 }));
     await service.deleteRecipe("r1");
-    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => header(i))).toEqual([
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => header(i))).toEqual([
       undefined,
       undefined,
+      "Bearer secret",
+      "Bearer secret",
       "Bearer secret",
       "Bearer secret",
       "Bearer secret",

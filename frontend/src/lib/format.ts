@@ -1,3 +1,5 @@
+import { DEFAULT_LEFTOVER_UNIT, LEFTOVER_MAX } from "@/services/types";
+
 export function relativeKo(isoDate: string): string {
   const then = new Date(isoDate).getTime();
   if (Number.isNaN(then)) return "";
@@ -48,4 +50,20 @@ export function daysAgoKo(day: string, today: string = todayLocal()): string {
   if (days > 1 && days < 7) return `${days}일 전`;
   if (days >= 7 && days < 30) return `${Math.floor(days / 7)}주 전`;
   return p.y === t.y ? `${p.m}월 ${p.d}일` : `${p.y}년 ${p.m}월 ${p.d}일`;
+}
+
+/** The unit shown for a leftover amount: the recipe's own, or "개" when empty. */
+export function leftoverUnitKo(unit: string): string {
+  return unit.trim() || DEFAULT_LEFTOVER_UNIT;
+}
+
+/**
+ * A typed leftover amount: a whole number from 0 to `LEFTOVER_MAX`
+ * (surrounding spaces allowed), otherwise null.
+ */
+export function parseLeftover(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const amount = Number(trimmed);
+  return amount <= LEFTOVER_MAX ? amount : null;
 }

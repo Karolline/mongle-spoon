@@ -28,6 +28,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
   ]);
   const [instructions, setInstructions] = useState("");
   const [servings, setServings] = useState("");
+  const [leftoverUnit, setLeftoverUnit] = useState("");
   const [mealTimes, setMealTimes] = useState<MealTime[]>([]);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
       );
       setInstructions(r.instructions);
       setServings(r.servings);
+      setLeftoverUnit(r.leftoverUnit);
       setMealTimes([...r.mealTimes]);
       setNotes(r.notes);
       setReady(true);
@@ -87,6 +89,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
         .filter((i) => i.name || i.amount),
       instructions: instructions.trim(),
       servings: servings.trim(),
+      leftoverUnit: leftoverUnit.trim(),
       mealTimes,
       notes: notes.trim(),
     };
@@ -212,6 +215,16 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
             value={servings}
             onChange={(e) => setServings(e.target.value)}
             placeholder="예) 3~4회분"
+            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] outline-none placeholder:text-ink-faint"
+          />
+        </Field>
+
+        <Field label="남은 양 단위" delay="rise-3">
+          <input
+            aria-label="남은 양 단위"
+            value={leftoverUnit}
+            onChange={(e) => setLeftoverUnit(e.target.value)}
+            placeholder="개 (예: 큐브, 통)"
             className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] outline-none placeholder:text-ink-faint"
           />
         </Field>
