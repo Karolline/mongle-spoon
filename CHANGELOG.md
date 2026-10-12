@@ -2,6 +2,12 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.2.1 (2026-10-12)
+
+- On iPhone, tapping a text field no longer zooms the page (which stayed zoomed on the detail screen after saving): every text field now uses 16px text. Pinch zoom still works.
+- The detail screen's "다른 날" date picker is now a button with a calendar icon; the chosen day shows in the "마지막으로 만든 날" line above.
+- The "몽글스푼" title on the list screen is no longer cut off at the bottom.
+
 ## v1.2.0 (2026-10-12)
 
 - Each recipe can record how much is left (e.g. frozen cubes): a whole number from 0 to 999, with a unit set per recipe in the add/edit form ("남은 양 단위", empty means "개").
