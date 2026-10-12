@@ -28,7 +28,7 @@ You are the developer for Mongle Spoon. You get a task brief and implement it fr
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 
 - Don't push, don't merge into `main`, don't bump the version, and don't edit `CHANGELOG.md` (that happens at release time).
-- Update docs the change affects (`AGENTS.md`, `docs/`), in English. `docs/future-features.md` is the user's Korean wishlist: only change it if the brief says so.
+- Update docs the change affects (`AGENTS.md`, `docs/`), in English. Never change `docs/future-features.md` (the user's Korean wishlist): the main session removes finished items after merging.
 
 ## Report
 

@@ -1,6 +1,6 @@
 ---
 name: plan-task
-description: Plan a feature or fix with the user, write a task brief, and hand it to the developer agent to build in the background on its own branch; then review it with the reviewer agent and merge it into main. Use when the user asks to plan a task, says /plan-task, 기획해줘, 작업 맡길게, or wants a feature built in the background.
+description: Plan a feature or fix with the user, write a task brief, and hand it to the developer agent to build in the background on its own branch; then review it with the reviewer agent, merge it into main, and release it with release notes. Use when the user asks to plan a task, says /plan-task, 기획해줘, 작업 맡길게, or wants a feature built in the background.
 argument-hint: <what to build>
 ---
 
@@ -12,7 +12,7 @@ The developer agent can't ask the user anything while it works, so every questio
 
 - Always read `docs/future-features.md` (the user's Korean wishlist) first, whatever the request is.
 - The request comes from the arguments. If it's empty, offer the wishlist items as choices (with their difficulty) and ask what to build.
-- If the request matches a wishlist item, even loosely worded, say which one and plan from it: its backend/frontend/DB notes are the starting point, and its "시작 전에 정할 것" points are questions for step 2. The wishlist says an item moves into `product-spec.md` when work starts, so the brief includes adding it to the spec. Ask the user whether the brief should also remove it from the wishlist.
+- If the request matches a wishlist item, even loosely worded, say which one and plan from it: its backend/frontend/DB notes are the starting point, and its "시작 전에 정할 것" points are questions for step 2. The wishlist says an item moves into `product-spec.md` when work starts, so the brief includes adding it to the spec. Never remove the item from the wishlist while planning, and never put that in the brief: the main session removes it only after the branch passed review and was merged into `main` (step 6).
 - If the request isn't on the wishlist but touches an item (for example it would make a planned item harder, or overlaps with one), point that out.
 - Read `product-spec.md`, `AGENTS.md`, and the code the task touches (screens, services, store, models, `openapi.yaml`), so the questions are about real gaps, not things the code already answers.
 
@@ -27,6 +27,8 @@ Ask the user (in Korean, plainly; the user is not a backend expert) about everyt
 - anything that conflicts with `product-spec.md` (the spec wins unless the user decides to change it; if so, the brief includes updating the spec).
 
 Use AskUserQuestion when the choices are clear, with your recommendation first. Don't ask about things you can decide from the code and `AGENTS.md`. Keep asking until nothing user-visible is left open.
+
+**Decide the release tag.** Every planned task ends in a release (step 6), so agree on its version now. Find the current version (latest tag from `git tag --list "v*" --sort=-v:refname`, and `backend/pyproject.toml`), pick the number to raise with `docs/versioning.md`, and ask with your recommendation first, each option with a one-line Korean reason (for example "새 기능이라 MINOR: v1.1.0 → v1.2.0"). If another planned task is already waiting to be released, say so, since the two may share one version.
 
 ## 3. Show the screen (when the frontend changes)
 
@@ -69,6 +71,9 @@ Save it to the scratchpad directory as `task-<short-name>.md` and show it to the
 
 ## Decided with the user
 - <each answer from step 2>
+
+## Release
+- Version vX.Y.Z (<MAJOR|MINOR|PATCH>: <reason>). Don't bump the version, edit `CHANGELOG.md`, or touch `docs/future-features.md`: the main session does those after merging.
 ```
 
 Summarize the brief for the user in Korean and ask for an explicit OK. Change it until they agree.
@@ -88,3 +93,6 @@ On OK, launch the developer agent with the Agent tool: `subagent_type: "develope
    - run all tests on `main`;
    - remove the worktree and delete the branch (`git worktree remove <path>`, `git branch -d <branch>`).
    Don't push.
+6. Only now, after review passed and the merge into `main` is done: if the task came from `docs/future-features.md`, remove its item there (keep the rest of the file, renumber items and fix references to them such as in "추천 순서", in Korean) and commit it on `main`.
+7. Release the version decided in the brief, following "Releasing a version" in `docs/versioning.md`: add it to `CHANGELOG.md`, update the version in every file, run all tests, commit `Release vX.Y.Z`, and tag it (`git tag -a vX.Y.Z -m "vX.Y.Z"`). Tell the user the version in one Korean line with the reason.
+8. Right away, write the release note with the `release-notes` skill (target the new tag, previous tag the latest released one) and show it to the user. Publishing is public: never publish until the user explicitly OKs the note. The tag must be on GitHub first, and the user pushes themselves, so ask them to push (`git push && git push --tags`), then publish once they confirm both.

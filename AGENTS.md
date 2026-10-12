@@ -87,7 +87,7 @@ Two environments on Render, both running the Docker image CI builds once and pus
 
 ## Agents and skills (Claude Code)
 
-- `.claude/skills/plan-task/`: `/plan-task <what to build>`. Plans with the user in the main conversation (agents can't ask the user questions), shows planned screen changes as a mockup page, writes a task brief, hands it to the developer agent in the background, then reviews and merges.
+- `.claude/skills/plan-task/`: `/plan-task <what to build>`. Plans with the user in the main conversation (agents can't ask the user questions), shows planned screen changes as a mockup page, writes a task brief, hands it to the developer agent in the background, then reviews and merges. The release version is decided while planning; after merging, the main session (never the developer) removes the item from `docs/future-features.md`, releases the version, and writes the release note, published only after the user OKs it.
 - `.claude/agents/developer.md`: builds one brief in a git worktree on its own branch, with tests and small commits. Never commits to `main`.
 - `.claude/agents/reviewer.md`: read-only review of a branch or uncommitted changes against this file, the spec and the brief.
 - `.claude/skills/release-notes/`: GitHub release notes.
