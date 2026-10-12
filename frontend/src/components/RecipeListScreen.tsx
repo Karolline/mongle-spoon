@@ -11,7 +11,7 @@ import {
 import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
 import { formatAppVersion } from "@/lib/appVersion";
-import { daysAgoKo, relativeKo } from "@/lib/format";
+import { daysAgoKo, leftoverUnitKo, relativeKo } from "@/lib/format";
 import { PinnedBadge } from "./PinnedBadge";
 
 /**
@@ -281,6 +281,8 @@ function RecipeCard({
   onTogglePin: () => void;
 }) {
   const pinned = recipe.pinnedAt !== null;
+  // Only what is actually left: nothing at 0 (all eaten) or when not recorded.
+  const hasLeftover = recipe.leftover !== null && recipe.leftover > 0;
   return (
     <article
       role="button"
@@ -333,7 +335,7 @@ function RecipeCard({
       <h2 className="mt-2.5 text-[20px] font-bold leading-snug tracking-tight">
         {recipe.name}
       </h2>
-      {recipe.mealTimes.length > 0 ? (
+      {recipe.mealTimes.length > 0 || hasLeftover ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {recipe.mealTimes.map((mt) => (
             <span
@@ -343,6 +345,15 @@ function RecipeCard({
               {MEAL_TIME_LABELS[mt]}
             </span>
           ))}
+          {hasLeftover ? (
+            <span
+              data-testid="leftover-chip"
+              className="min-w-0 max-w-full truncate rounded-full border border-ink/15 bg-white/70 px-2.5 py-1 text-[12px] font-semibold text-ink"
+            >
+              {recipe.leftover}
+              {leftoverUnitKo(recipe.leftoverUnit)} 남음
+            </span>
+          ) : null}
         </div>
       ) : null}
       {recipe.ingredients.length > 0 ? (

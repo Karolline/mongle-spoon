@@ -93,6 +93,40 @@ describe("RecipeListScreen", () => {
     expect(cards()[1]).not.toHaveTextContent("만듦");
   });
 
+  it("shows how much is left only when there is some", async () => {
+    await mockRecipeService.setLeftover("seed-2", 0);
+    const bare = await mockRecipeService.createRecipe({
+      name: "감자 미음",
+      ingredients: [],
+      instructions: "",
+      servings: "",
+      mealTimes: [],
+      notes: "",
+      leftoverUnit: "",
+    });
+    await mockRecipeService.setLeftover(bare.id, 1);
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    const card = (name: string) =>
+      cards().find((c) => within(c).queryByRole("heading", { name }))!;
+
+    expect(within(card("소고기 애호박 미음")).getByTestId("leftover-chip")).toHaveTextContent(
+      "5큐브 남음",
+    );
+    // An empty unit is shown as 개.
+    expect(within(card("닭안심 브로콜리 죽")).getByTestId("leftover-chip")).toHaveTextContent(
+      "2개 남음",
+    );
+    // A recipe without meal times still gets the chip.
+    expect(within(card("감자 미음")).getByTestId("leftover-chip")).toHaveTextContent(
+      "1개 남음",
+    );
+    // 0 (all eaten) and not recorded show nothing.
+    expect(within(card("단호박 고구마 매시")).queryByTestId("leftover-chip")).toBeNull();
+    expect(within(card("두부 새송이 무름")).queryByTestId("leftover-chip")).toBeNull();
+    expect(screen.queryByText("0개 남음")).not.toBeInTheDocument();
+  });
+
   it("searches by ingredient name", async () => {
     const user = userEvent.setup();
     render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
