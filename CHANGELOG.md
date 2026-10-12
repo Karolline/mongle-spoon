@@ -2,6 +2,13 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.2.0 (2026-10-12)
+
+- Each recipe can record how much is left (e.g. frozen cubes): a whole number from 0 to 999, with a unit set per recipe in the add/edit form ("남은 양 단위", empty means "개").
+- The detail screen has a "남은 양" section: [−]/[+] change it by one, [숫자 입력] sets a number, and [기록 지우기] removes it. 0 shows "다 먹었어요". Changing it needs the write password and doesn't change the recipe's "updated" time.
+- Cards show what's left (e.g. "5큐브 남음") when 1 or more is left.
+- Database: two new columns (`recipes.leftover`, nullable, and `recipes.leftover_unit`, empty by default), added by a migration that runs when the app starts.
+
 ## v1.1.1 (2026-10-12)
 
 - The list shows pinned recipes first, then the rest by the more recent of the day they were last made and their last update. A recipe just added or edited now comes right after the pinned ones, and never-made recipes are no longer always last. On the same day, the update counts as more recent.
