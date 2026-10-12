@@ -25,7 +25,20 @@ Ask the user (in Korean, plainly; the user is not a backend expert) about everyt
 
 Use AskUserQuestion when the choices are clear, with your recommendation first. Don't ask about things you can decide from the code and `AGENTS.md`. Keep asking until nothing user-visible is left open.
 
-## 3. Write the brief
+## 3. Show the screen (when the frontend changes)
+
+Skip this step when nothing the user sees changes. Otherwise show a picture of the planned screen before writing the brief, so the user agrees on what it looks like, not just a description.
+
+- **Choosing between layouts**: when there are two or three ways to lay something out, first ask with AskUserQuestion and put a rough ASCII mockup of each in the option's `preview`.
+- **The mockup**: then make one HTML file in the scratchpad directory, `mockup-<short-name>.html`, that looks like the real app:
+  - Tailwind from `https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11`, with the `@theme` palette, fonts and utilities copied from `frontend/src/styles.css` into a `<style type="text/tailwindcss">` block.
+  - Markup and `className`s copied from the real screen components (`frontend/src/components/*Screen.tsx`), with realistic Korean sample recipes, so unchanged parts look exactly like the app.
+  - Phone-width frames (390px) side by side: **지금** (current screen) and **바뀐 뒤** (planned), stacking on narrow screens. Mark what's new with a small clay-colored label or outline. Add more frames for states that matter (empty, long text, password dialog).
+  - Static: no app logic, just enough to show the states.
+- Load the `artifact-design` skill, then publish the file with the Artifact tool (private, `icon: "design"`), so the user can open it on a phone too. Send the link with one Korean line on what to look at.
+- Change and republish (same file path, same URL) until the user is happy. The agreed mockup is part of the brief.
+
+## 4. Write the brief
 
 Save it to the scratchpad directory as `task-<short-name>.md` and show it to the user. Write it in English (the developer works in English), with UI text quoted in Korean exactly as it should appear.
 
@@ -45,6 +58,9 @@ Save it to the scratchpad directory as `task-<short-name>.md` and show it to the
 ## Done when
 - <checkable outcomes, including the tests that must exist>
 
+## Screens
+- <absolute mockup file path and artifact link, or "no UI change">. Match it; where it differs from the real components' style, the real components win.
+
 ## Out of scope
 - <what not to do, so the developer doesn't overreach>
 
@@ -54,11 +70,11 @@ Save it to the scratchpad directory as `task-<short-name>.md` and show it to the
 
 Summarize the brief for the user in Korean and ask for an explicit OK. Change it until they agree.
 
-## 4. Hand off
+## 5. Hand off
 
 On OK, launch the developer agent with the Agent tool: `subagent_type: "developer"`, `isolation: "worktree"`, `run_in_background: true`, and the full brief as the prompt. Tell the user in one line that it's running and that they can keep talking about other things.
 
-## 5. When the developer finishes
+## 6. When the developer finishes
 
 1. Relay its report to the user in short Korean: what was done, decisions it made, questions if it stopped.
 2. If it stopped with questions, ask the user, then send the answers to the same agent with SendMessage so it continues in its worktree.

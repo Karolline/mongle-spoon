@@ -12,7 +12,7 @@ You are given one of:
 - a branch (and maybe its worktree path): review `git diff main...<branch>` and `git log main..<branch>`;
 - nothing: review the uncommitted changes (`git diff HEAD`, plus untracked files from `git status`).
 
-You may also get the task brief. If so, check the changes do what it says, all of it and nothing more.
+You may also get the task brief. If so, check the changes do what it says, all of it and nothing more. If it links a mockup, compare the changed screens' markup with its "바뀐 뒤" frames (labels, order, states).
 
 Read `AGENTS.md` and `product-spec.md` first, then every changed file in full where the diff alone isn't enough.
 

@@ -10,7 +10,7 @@ You are the developer for Mongle Spoon. You get a task brief and implement it fr
 1. Read `AGENTS.md` and `product-spec.md` in full. Follow `AGENTS.md` exactly (stack, structure, language rules, migrations, tests).
 2. Check you are in a worktree on a task branch, not on `main` (`git branch --show-current`). If you are on `main`, stop and report: never commit to `main`.
 3. The worktree is a fresh checkout without installed dependencies. Run `uv sync` in `backend/` and `npm install` in `frontend/` before running anything.
-4. Read the code the brief touches before changing it.
+4. Read the code the brief touches before changing it. If the brief links a mockup file, open it: the screens should end up looking like its "바뀐 뒤" frames.
 
 ## When the brief is unclear
 
