@@ -36,6 +36,17 @@ TEST_DATABASE_URL=postgresql://USER:PASS@127.0.0.1:5432/DBNAME uv run pytest
 
 Use a throwaway database, never the dev or production one: every test drops and recreates all tables. With the local Docker database, use `127.0.0.1`, not `localhost` (on Windows `localhost` tries IPv6 first and can hang). `test_store.py::test_data_persists_in_a_database_file` always uses a SQLite file.
 
+A throwaway PostgreSQL in Docker (not the compose `db` service, whose volume holds the dev data):
+
+```
+docker run -d --rm --name mongle-spoon-testpg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test -p 127.0.0.1:55432:5432 postgres:18
+docker exec mongle-spoon-testpg pg_isready -U postgres -d test   # repeat until "accepting connections"
+TEST_DATABASE_URL=postgresql://postgres:test@127.0.0.1:55432/test uv run pytest
+docker stop mongle-spoon-testpg   # --rm deletes it
+```
+
+If `docker info` fails because the daemon isn't running, start Docker Desktop first (on this machine: `C:\Users\hyejin\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`, e.g. `Start-Process` in PowerShell) and wait until `docker info` succeeds. Leave Docker Desktop running afterwards; only stop the containers you started.
+
 ### Against docker-compose.yaml
 
 `tests/compose/test_compose.py` builds and starts the real stack (`docker compose up --build`) and checks two things: the frontend was built into the image and is served, and the backend stores recipes in the PostgreSQL container (read back with `psql`). It needs Docker, takes about a minute, and is not part of the default run:

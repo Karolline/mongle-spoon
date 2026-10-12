@@ -27,7 +27,7 @@ Read `AGENTS.md` and `product-spec.md` first, then every changed file in full wh
 7. **Rules**: no new dependency without it being in the brief; no version bump or `CHANGELOG.md` edit; commits are small and each leaves the app working; nothing pushed.
 8. **Docs**: `AGENTS.md` and `docs/` describe the new behavior where they need to.
 
-Then run the tests in the code being reviewed (the worktree if given, otherwise the repo): `uv run pytest` in `backend/`, `npm test`, `npm run lint` and `npm run build` in `frontend/`. Report the results. If dependencies are missing, run `uv sync` / `npm install` first.
+Then run the tests in the code being reviewed (the worktree if given, otherwise the repo): `uv run pytest` in `backend/`, `npm test`, `npm run lint` and `npm run build` in `frontend/`. Report the results. If dependencies are missing, run `uv sync` / `npm install` first. When the change touches the database (models, migrations, store queries), also run `uv run pytest` on PostgreSQL; if Docker isn't running, start Docker Desktop and use a throwaway container, as "On PostgreSQL" in `docs/testing.md` describes.
 
 ## Report
 
