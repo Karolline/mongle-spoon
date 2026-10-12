@@ -10,7 +10,10 @@ The developer agent can't ask the user anything while it works, so every questio
 
 ## 1. Understand the request
 
-- The request comes from the arguments. If it's empty, ask what to build. It may point at an item in `docs/future-features.md`.
+- Always read `docs/future-features.md` (the user's Korean wishlist) first, whatever the request is.
+- The request comes from the arguments. If it's empty, offer the wishlist items as choices (with their difficulty) and ask what to build.
+- If the request matches a wishlist item, even loosely worded, say which one and plan from it: its backend/frontend/DB notes are the starting point, and its "시작 전에 정할 것" points are questions for step 2. The wishlist says an item moves into `product-spec.md` when work starts, so the brief includes adding it to the spec. Ask the user whether the brief should also remove it from the wishlist.
+- If the request isn't on the wishlist but touches an item (for example it would make a planned item harder, or overlaps with one), point that out.
 - Read `product-spec.md`, `AGENTS.md`, and the code the task touches (screens, services, store, models, `openapi.yaml`), so the questions are about real gaps, not things the code already answers.
 
 ## 2. Ask
