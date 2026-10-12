@@ -247,6 +247,12 @@ export const mockRecipeService: RecipeService = {
       ...input,
       ingredients: input.ingredients.map((i) => ({ ...i })),
       mealTimes: [...input.mealTimes],
+      // Like the backend, an update never changes these, even if `input` carries them.
+      id: existing.id,
+      createdAt: existing.createdAt,
+      pinnedAt: existing.pinnedAt,
+      lastMadeOn: existing.lastMadeOn,
+      leftover: existing.leftover,
       updatedAt: new Date().toISOString(),
     };
     store[index] = updated;

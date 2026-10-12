@@ -257,6 +257,13 @@ describe("mockRecipeService", () => {
       expect(created.leftoverUnit).toBe("큐브");
     });
 
+    it("keeps the amount when the update input carries an old one", async () => {
+      const stale = (await mockRecipeService.getRecipe("seed-1"))!;
+      await mockRecipeService.setLeftover("seed-1", 2);
+      const updated = await mockRecipeService.updateRecipe("seed-1", stale);
+      expect(updated.leftover).toBe(2);
+    });
+
     it("rejects anything but a whole number from 0 to 999", async () => {
       for (const amount of [-1, 1000, 2.5, Number.NaN]) {
         await expect(
