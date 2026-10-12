@@ -14,7 +14,7 @@ The spec is [`product-spec.md`](product-spec.md). Read it before starting any ta
 
 ## Backlog
 
-The backlog is [GitHub Issues](https://github.com/Karolline/mongle-spoon/issues) (open issues, in Korean), labeled by difficulty (`난이도: 쉬움`/`보통`/`어려움`) and area (`기능 확장`, `새 기능`, `배포`, `관찰`). An issue's "시작 전에 정할 것" lists what to decide before starting. When work on an issue starts, its feature moves into `product-spec.md`. The issue is closed by a `Closes #N` line in the release commit after its work is merged into `main`, so it closes when the user pushes. Create, edit, close or comment on issues only when the user asks (the repo is public).
+The backlog is [GitHub Issues](https://github.com/Karolline/mongle-spoon/issues) (open issues, in Korean), labeled by difficulty (`난이도: 쉬움`/`보통`/`어려움`) and area (`기능 확장`, `새 기능`, `배포`, `관찰`), or `bug` for something broken. An issue's "시작 전에 정할 것" lists what to decide before starting. When work on an issue starts, its feature moves into `product-spec.md`. The issue is closed by a `Closes #N` line in the release commit after its work is merged into `main`, so it closes when the user pushes. Create, edit, close or comment on issues only when the user asks (the repo is public).
 
 ## Tech stack (fixed, do not change)
 
