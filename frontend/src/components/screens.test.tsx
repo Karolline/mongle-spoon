@@ -689,6 +689,63 @@ describe("RecipeDetailScreen", () => {
     setLastMade.mockRestore();
   });
 
+  it("shows only '다른 날' on the pill, and its date input records the day", async () => {
+    await mockRecipeService.setLastMade("seed-3", "2026-01-02");
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    expect(screen.getByTestId("last-made")).toHaveTextContent("2026년 1월 2일");
+    const input = screen.getByLabelText<HTMLInputElement>("만든 날 고르기");
+    const pill = input.closest("label")!;
+    expect(pill).toHaveTextContent(/^다른 날$/);
+    expect(pill).not.toHaveTextContent("2026");
+
+    // Clicking opens the native picker where the browser supports it.
+    const showPicker = vi.fn();
+    input.showPicker = showPicker;
+    fireEvent.click(input);
+    expect(showPicker).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(input, { target: { value: "2026-01-05" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("last-made")).toHaveTextContent(
+        "2026년 1월 5일",
+      ),
+    );
+    expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBe(
+      "2026-01-05",
+    );
+  });
+
+  it("still works when the browser refuses to show the picker", async () => {
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-3"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByRole("heading", { name: "닭안심 브로콜리 죽" });
+    const input = screen.getByLabelText<HTMLInputElement>("만든 날 고르기");
+    input.showPicker = () => {
+      throw new DOMException("Not allowed", "NotAllowedError");
+    };
+    fireEvent.click(input);
+    fireEvent.change(input, { target: { value: "2026-01-05" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("last-made")).toHaveTextContent(
+        "2026년 1월 5일",
+      ),
+    );
+  });
+
   it("triggers edit", async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
@@ -962,5 +1019,84 @@ describe("write protection", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(create).toHaveBeenCalledTimes(2);
     create.mockRestore();
+  });
+});
+
+// iPhone Safari zooms into a focused text field whose text is under 16px, and
+// the app keeps that zoom across screens. jsdom doesn't apply Tailwind, so this
+// checks the classes: every text field needs a font size of at least 16px.
+describe("text fields are at least 16px", () => {
+  const TEXT_SIZE_PX: Record<string, number> = {
+    "text-xs": 12,
+    "text-sm": 14,
+    "text-base": 16,
+    "text-lg": 18,
+  };
+
+  function fontSizePx(field: Element): number | undefined {
+    for (const cls of field.classList) {
+      const px = /^text-\[(\d+)px\]$/.exec(cls);
+      if (px) return Number(px[1]);
+      if (cls in TEXT_SIZE_PX) return TEXT_SIZE_PX[cls];
+    }
+    return undefined;
+  }
+
+  function expectTextFieldsAtLeast16px() {
+    const fields = document.body.querySelectorAll(
+      "input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea",
+    );
+    expect(fields.length).toBeGreaterThan(0);
+    for (const field of fields) {
+      const name =
+        field.getAttribute("aria-label") ??
+        field.getAttribute("placeholder") ??
+        field.outerHTML;
+      expect(fontSizePx(field), name).toBeGreaterThanOrEqual(16);
+    }
+  }
+
+  it("on the form", async () => {
+    render(
+      <RecipeFormScreen recipeId="seed-1" onSaved={vi.fn()} onCancel={vi.fn()} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("메뉴 이름")).not.toHaveValue(""),
+    );
+    expect(document.querySelectorAll("textarea")).toHaveLength(2);
+    expectTextFieldsAtLeast16px();
+  });
+
+  it("on the list", async () => {
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    expectTextFieldsAtLeast16px();
+  });
+
+  it("in the password dialog", async () => {
+    mockRecipeService.lock();
+    const user = userEvent.setup();
+    render(<RecipeListScreen onOpenRecipe={vi.fn()} onAdd={vi.fn()} />);
+    await screen.findByText("소고기 애호박 미음");
+    await user.click(screen.getByRole("button", { name: /추가/ }));
+    await screen.findByRole("dialog", { name: "비밀번호 입력" });
+    expectTextFieldsAtLeast16px();
+  });
+
+  it("on the detail screen, with the leftover field open", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-1"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByTestId("leftover");
+    await user.click(screen.getByRole("button", { name: "숫자 입력" }));
+    expect(screen.getByLabelText("남은 양 입력")).toBeInTheDocument();
+    expect(screen.getByLabelText("만든 날 고르기")).toBeInTheDocument();
+    expectTextFieldsAtLeast16px();
   });
 });

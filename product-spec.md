@@ -19,6 +19,7 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 - Mobile-first web app, used mainly in a phone browser.
 - All UI text (buttons, labels, messages) is in Korean.
+- Text fields use text of at least 16px, so iPhone Safari doesn't zoom in when one is tapped. Pinch zoom stays allowed.
 - All project documentation is in English.
 
 ## Recipe
@@ -50,7 +51,7 @@ Three screens:
    - The count in the top right is the number of recipes currently shown (after search and filter).
    - The app version (e.g. `v1.0.2`) is shown in small text at the bottom, so each deployment shows which version it runs.
    - While the first load is in progress, it shows "레시피를 불러오는 중이에요…" instead of a count or the empty message. If loading fails, it retries automatically a few times (about 30 seconds in total, e.g. while a free host wakes up), then shows "서버에 연결 중이에요" with a [다시 시도] button.
-2. **Detail:** all fields of one recipe, with [고정] (or [고정 해제]), [수정] and [삭제] buttons. A "마지막으로 만든 날" section shows the day it was last made (or that it hasn't been recorded), with [오늘 만들었어요], a date picker for another day, and [기록 지우기]. Below it, a "남은 양" section shows how much is left ("5큐브", "다 먹었어요" at 0, or that it hasn't been recorded) between [−] and [+] ([+] from not recorded gives 1; [−] is disabled at 0 and when not recorded, [+] at 999). [숫자 입력] opens a number field to type the amount (whole numbers 0-999) with [저장] and [취소], and [기록 지우기] (shown when an amount is recorded, including 0) sets it back to not recorded. [오늘 만들었어요] doesn't change the amount. Deleting asks for confirmation.
+2. **Detail:** all fields of one recipe, with [고정] (or [고정 해제]), [수정] and [삭제] buttons. A "마지막으로 만든 날" section shows the day it was last made (or that it hasn't been recorded), with [오늘 만들었어요], [다른 날] (a button that opens the phone's date picker; it doesn't show the date, which is already shown above), and [기록 지우기]. Below it, a "남은 양" section shows how much is left ("5큐브", "다 먹었어요" at 0, or that it hasn't been recorded) between [−] and [+] ([+] from not recorded gives 1; [−] is disabled at 0 and when not recorded, [+] at 999). [숫자 입력] opens a number field to type the amount (whole numbers 0-999) with [저장] and [취소], and [기록 지우기] (shown when an amount is recorded, including 0) sets it back to not recorded. [오늘 만들었어요] doesn't change the amount. Deleting asks for confirmation.
 3. **Add / edit form:** one screen for both. Ingredients are added and removed row by row. A "남은 양 단위" field below 분량 sets the leftover unit (the amount itself is changed on the detail screen). The recipe cannot be saved without a name.
 
 ## Out of scope (later)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarCheck, ChevronLeft, Minus, Pin, Plus } from "lucide-react";
+import { Calendar, CalendarCheck, ChevronLeft, Minus, Pin, Plus } from "lucide-react";
 import {
   LEFTOVER_MAX,
   MEAL_TIME_LABELS,
@@ -217,19 +217,23 @@ export function RecipeDetailScreen({
             <CalendarCheck className="size-4" aria-hidden />
             오늘 만들었어요
           </button>
-          <label className="flex items-center gap-2 rounded-full border border-ink/15 bg-white/70 py-1.5 pl-4 pr-3 text-[13px] font-medium text-ink-soft">
+          {/* Looks like a button; the real date input covers it, invisible.
+              It stays 16px so iPhone Safari doesn't zoom when it's tapped. */}
+          <label className="relative flex items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-4 py-2.5 text-[13px] font-medium text-ink-soft ring-clay/40 focus-within:ring-2">
+            <Calendar className="size-4" aria-hidden />
             다른 날
             <input
               type="date"
               aria-label="만든 날 고르기"
               max={today}
               value={recipe.lastMadeOn ?? ""}
+              onClick={(e) => openDatePicker(e.currentTarget)}
               onChange={(e) => {
                 const day = e.target.value;
                 // Ignore clearing the picker and days in the future.
                 if (day && day <= today) recordMade(day);
               }}
-              className="min-w-0 bg-transparent text-[13px] text-ink outline-none"
+              className="absolute inset-0 h-full w-full cursor-pointer appearance-none text-[16px] opacity-0"
             />
           </label>
           {recipe.lastMadeOn ? (
@@ -330,7 +334,7 @@ export function RecipeDetailScreen({
                   aria-label="남은 양 입력"
                   value={leftoverDraft}
                   onChange={(e) => setLeftoverDraft(e.target.value)}
-                  className="min-w-0 flex-1 bg-transparent text-[15px] tabular-nums outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-[16px] tabular-nums outline-none"
                 />
                 <span className="max-w-[40%] shrink-0 truncate text-[14px] text-ink-soft">
                   {leftoverUnit}
@@ -454,6 +458,18 @@ export function RecipeDetailScreen({
       {dialog}
     </AppBackground>
   );
+}
+
+/**
+ * Opens the native date picker. Phones open it on tap anyway; desktop Chrome
+ * only opens it from the small calendar icon, which is hidden here.
+ */
+function openDatePicker(input: HTMLInputElement) {
+  try {
+    input.showPicker?.();
+  } catch {
+    // Not allowed here (e.g. not a user gesture); the input still works.
+  }
 }
 
 function Section({

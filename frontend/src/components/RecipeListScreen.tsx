@@ -138,7 +138,7 @@ export function RecipeListScreen({
             placeholder="이름 또는 재료 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full min-w-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink-faint"
+            className="w-full min-w-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-ink-faint"
           />
         </div>
         <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">

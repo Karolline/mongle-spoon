@@ -131,7 +131,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="예) 소고기 애호박 미음"
-            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] outline-none placeholder:text-ink-faint"
+            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[16px] outline-none placeholder:text-ink-faint"
           />
           {error ? (
             <p role="alert" className="mt-2 text-[13px] font-medium text-clay">
@@ -149,7 +149,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
                   value={row.name}
                   onChange={(e) => updateIngredient(i, { name: e.target.value })}
                   placeholder="재료"
-                  className="min-w-0 flex-1 rounded-2xl bg-cream/70 px-4 py-3 text-[15px] outline-none placeholder:text-ink-faint"
+                  className="min-w-0 flex-1 rounded-2xl bg-cream/70 px-4 py-3 text-[16px] outline-none placeholder:text-ink-faint"
                 />
                 <input
                   aria-label={`재료 양 ${i + 1}`}
@@ -158,7 +158,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
                     updateIngredient(i, { amount: e.target.value })
                   }
                   placeholder="30g"
-                  className="w-24 shrink-0 rounded-2xl bg-cream/70 px-3 py-3 text-[15px] outline-none placeholder:text-ink-faint"
+                  className="w-24 shrink-0 rounded-2xl bg-cream/70 px-3 py-3 text-[16px] outline-none placeholder:text-ink-faint"
                 />
                 <button
                   type="button"
@@ -215,7 +215,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
             value={servings}
             onChange={(e) => setServings(e.target.value)}
             placeholder="예) 3~4회분"
-            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] outline-none placeholder:text-ink-faint"
+            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[16px] outline-none placeholder:text-ink-faint"
           />
         </Field>
 
@@ -225,7 +225,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
             value={leftoverUnit}
             onChange={(e) => setLeftoverUnit(e.target.value)}
             placeholder="개 (예: 큐브, 통)"
-            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] outline-none placeholder:text-ink-faint"
+            className="w-full rounded-2xl bg-cream/70 px-4 py-3.5 text-[16px] outline-none placeholder:text-ink-faint"
           />
         </Field>
 
@@ -236,7 +236,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
             onChange={(e) => setInstructions(e.target.value)}
             rows={5}
             placeholder="조리 순서를 자유롭게 적어 주세요."
-            className="w-full resize-none rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] leading-relaxed outline-none placeholder:text-ink-faint"
+            className="w-full resize-none rounded-2xl bg-cream/70 px-4 py-3.5 text-[16px] leading-relaxed outline-none placeholder:text-ink-faint"
           />
         </Field>
 
@@ -247,7 +247,7 @@ export function RecipeFormScreen({ recipeId, onSaved, onCancel }: Props) {
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             placeholder="아기 반응, 보관 팁 등 자유 메모"
-            className="w-full resize-none rounded-2xl bg-cream/70 px-4 py-3.5 text-[15px] leading-relaxed outline-none placeholder:text-ink-faint"
+            className="w-full resize-none rounded-2xl bg-cream/70 px-4 py-3.5 text-[16px] leading-relaxed outline-none placeholder:text-ink-faint"
           />
         </Field>
 

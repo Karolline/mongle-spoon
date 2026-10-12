@@ -52,7 +52,7 @@ export function PasswordDialog({ onUnlocked, onCancel }: Props) {
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-4 w-full rounded-2xl bg-white/70 px-4 py-3.5 text-[15px] outline-none"
+          className="mt-4 w-full rounded-2xl bg-white/70 px-4 py-3.5 text-[16px] outline-none"
         />
         {error ? (
           <p role="alert" className="mt-2 text-[13px] font-medium text-clay">
