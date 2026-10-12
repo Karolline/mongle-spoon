@@ -297,7 +297,7 @@ function RecipeCard({
         <div className="flex min-w-0 items-center gap-2">
           {pinned ? <PinnedBadge /> : null}
           <span className="min-w-0 truncate font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
-            {/* The list is sorted by the day made, so show that when there is one. */}
+            {/* Show the day made when there is one, otherwise the last update. */}
             {recipe.lastMadeOn
               ? `${daysAgoKo(recipe.lastMadeOn)} 만듦`
               : `${relativeKo(recipe.updatedAt)} 수정`}
