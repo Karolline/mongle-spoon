@@ -490,6 +490,184 @@ describe("RecipeDetailScreen", () => {
     expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBeNull();
   });
 
+  function renderDetail(recipeId: string) {
+    render(
+      <RecipeDetailScreen
+        recipeId={recipeId}
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+  }
+
+  const minus = () => screen.getByRole("button", { name: "하나 줄이기" });
+  const plus = () => screen.getByRole("button", { name: "하나 늘리기" });
+
+  it("changes how much is left with − and +", async () => {
+    const user = userEvent.setup();
+    renderDetail("seed-1");
+    const value = await screen.findByTestId("leftover");
+    expect(value).toHaveTextContent("5큐브");
+
+    await user.click(minus());
+    await waitFor(() => expect(value).toHaveTextContent("4큐브"));
+    await user.click(plus());
+    await waitFor(() => expect(value).toHaveTextContent("5큐브"));
+    await waitFor(() => expect(plus()).toBeEnabled());
+    await user.click(plus());
+    await waitFor(() => expect(value).toHaveTextContent("6큐브"));
+    const saved = (await mockRecipeService.getRecipe("seed-1"))!;
+    expect(saved.leftover).toBe(6);
+  });
+
+  it("disables − at 0 and shows that it's all eaten", async () => {
+    const user = userEvent.setup();
+    await mockRecipeService.setLeftover("seed-1", 1);
+    renderDetail("seed-1");
+    const value = await screen.findByTestId("leftover");
+    await user.click(minus());
+    await waitFor(() => expect(value).toHaveTextContent("다 먹었어요"));
+    expect(minus()).toBeDisabled();
+    expect(plus()).toBeEnabled();
+    // 0 is a recorded amount, so it can be cleared.
+    expect(
+      screen.getByRole("button", { name: "남은 양 기록 지우기" }),
+    ).toBeInTheDocument();
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(0);
+  });
+
+  it("starts at 1 with + when nothing is recorded, and − is disabled", async () => {
+    const user = userEvent.setup();
+    renderDetail("seed-2");
+    const value = await screen.findByTestId("leftover");
+    expect(value).toHaveTextContent("아직 기록이 없어요");
+    expect(minus()).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "남은 양 기록 지우기" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(plus());
+    // An empty unit is shown as 개.
+    await waitFor(() => expect(value).toHaveTextContent("1개"));
+    expect(minus()).toBeEnabled();
+    expect((await mockRecipeService.getRecipe("seed-2"))?.leftover).toBe(1);
+  });
+
+  it("disables + at 999", async () => {
+    await mockRecipeService.setLeftover("seed-1", 999);
+    renderDetail("seed-1");
+    await screen.findByTestId("leftover");
+    expect(plus()).toBeDisabled();
+    expect(minus()).toBeEnabled();
+  });
+
+  it("disables − and + while a change is being saved", async () => {
+    const user = userEvent.setup();
+    let finish: () => void = () => {};
+    const setLeftover = vi
+      .spyOn(mockRecipeService, "setLeftover")
+      .mockImplementationOnce(async (id, amount) => {
+        await new Promise<void>((resolve) => (finish = resolve));
+        setLeftover.mockRestore();
+        return mockRecipeService.setLeftover(id, amount);
+      });
+    renderDetail("seed-1");
+    const value = await screen.findByTestId("leftover");
+
+    await user.click(plus());
+    expect(plus()).toBeDisabled();
+    expect(minus()).toBeDisabled();
+    await user.click(plus());
+    finish();
+
+    await waitFor(() => expect(value).toHaveTextContent("6큐브"));
+    expect(plus()).toBeEnabled();
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(6);
+  });
+
+  it("saves a typed amount, or cancels it", async () => {
+    const user = userEvent.setup();
+    renderDetail("seed-1");
+    await screen.findByTestId("leftover");
+
+    await user.click(screen.getByRole("button", { name: "숫자 입력" }));
+    const input = screen.getByLabelText("남은 양 입력");
+    expect(input).toHaveValue("5");
+    expect(input).toHaveAttribute("inputmode", "numeric");
+    expect(
+      screen.queryByRole("button", { name: "하나 줄이기" }),
+    ).not.toBeInTheDocument();
+    await user.clear(input);
+    await user.type(input, "12");
+    await user.click(screen.getByRole("button", { name: "취소" }));
+    expect(screen.getByTestId("leftover")).toHaveTextContent("5큐브");
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(5);
+
+    await user.click(screen.getByRole("button", { name: "숫자 입력" }));
+    await user.clear(screen.getByLabelText("남은 양 입력"));
+    await user.type(screen.getByLabelText("남은 양 입력"), "12");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("leftover")).toHaveTextContent("12큐브"),
+    );
+    expect(screen.queryByLabelText("남은 양 입력")).not.toBeInTheDocument();
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(12);
+
+    // Enter in the input saves too; an empty editor starts empty.
+    await user.click(screen.getByRole("button", { name: "남은 양 기록 지우기" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("leftover")).toHaveTextContent(
+        "아직 기록이 없어요",
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "숫자 입력" }));
+    expect(screen.getByLabelText("남은 양 입력")).toHaveValue("");
+    await user.type(screen.getByLabelText("남은 양 입력"), "0{Enter}");
+    await waitFor(() =>
+      expect(screen.getByTestId("leftover")).toHaveTextContent("다 먹었어요"),
+    );
+  });
+
+  it("only saves whole numbers from 0 to 999", async () => {
+    const user = userEvent.setup();
+    renderDetail("seed-2");
+    await screen.findByTestId("leftover");
+    await user.click(screen.getByRole("button", { name: "숫자 입력" }));
+    const input = screen.getByLabelText("남은 양 입력");
+    const save = screen.getByRole("button", { name: "저장" });
+    expect(save).toBeDisabled();
+    expect(screen.getByText(/정수만 넣을 수 있어요/)).toHaveTextContent(
+      "0부터 999까지 정수만 넣을 수 있어요.",
+    );
+
+    for (const text of ["-1", "1000", "2.5", "abc"]) {
+      await user.clear(input);
+      await user.type(input, text);
+      expect(save).toBeDisabled();
+    }
+    await user.type(input, "{Enter}");
+    expect((await mockRecipeService.getRecipe("seed-2"))?.leftover).toBeNull();
+
+    await user.clear(input);
+    await user.type(input, "999");
+    expect(save).toBeEnabled();
+  });
+
+  it("clears how much is left", async () => {
+    const user = userEvent.setup();
+    renderDetail("seed-1");
+    const value = await screen.findByTestId("leftover");
+    await user.click(screen.getByRole("button", { name: "남은 양 기록 지우기" }));
+    await waitFor(() => expect(value).toHaveTextContent("아직 기록이 없어요"));
+    expect(
+      screen.queryByRole("button", { name: "남은 양 기록 지우기" }),
+    ).not.toBeInTheDocument();
+    const saved = (await mockRecipeService.getRecipe("seed-1"))!;
+    expect(saved.leftover).toBeNull();
+    expect(saved.leftoverUnit).toBe("큐브");
+  });
+
   it("ignores a day in the future", async () => {
     const setLastMade = vi.spyOn(mockRecipeService, "setLastMade");
     render(
@@ -676,6 +854,78 @@ describe("write protection", () => {
     expect((await mockRecipeService.getRecipe("seed-3"))?.lastMadeOn).toBe(
       todayLocal(),
     );
+  });
+
+  it("asks for the password before changing how much is left", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-1"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    const value = await screen.findByTestId("leftover");
+    await user.click(screen.getByRole("button", { name: "하나 늘리기" }));
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(5);
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() => expect(value).toHaveTextContent("6큐브"));
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(6);
+  });
+
+  it("opens the number editor without the password, and asks when saving", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-1"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    await screen.findByTestId("leftover");
+    await user.click(screen.getByRole("button", { name: "숫자 입력" }));
+    expect(
+      screen.queryByRole("dialog", { name: "비밀번호 입력" }),
+    ).not.toBeInTheDocument();
+    const input = screen.getByLabelText("남은 양 입력");
+    await user.clear(input);
+    await user.type(input, "3");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    expect((await mockRecipeService.getRecipe("seed-1"))?.leftover).toBe(5);
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() =>
+      expect(screen.getByTestId("leftover")).toHaveTextContent("3큐브"),
+    );
+  });
+
+  it("asks again when the password is rejected while changing how much is left", async () => {
+    const user = userEvent.setup();
+    await mockRecipeService.unlock(MOCK_PASSWORD);
+    const clear = vi
+      .spyOn(mockRecipeService, "clearLeftover")
+      .mockImplementationOnce(async () => {
+        mockRecipeService.lock();
+        throw new ApiError(401, "Wrong or missing password");
+      });
+    render(
+      <RecipeDetailScreen
+        recipeId="seed-1"
+        onBack={vi.fn()}
+        onEdit={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+    const value = await screen.findByTestId("leftover");
+    await user.click(screen.getByRole("button", { name: "남은 양 기록 지우기" }));
+
+    await enterPassword(user, MOCK_PASSWORD);
+    await waitFor(() => expect(value).toHaveTextContent("아직 기록이 없어요"));
+    expect(clear).toHaveBeenCalledTimes(2);
+    clear.mockRestore();
   });
 
   it("asks for the password when saving the form, then saves", async () => {

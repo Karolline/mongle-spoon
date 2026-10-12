@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { CalendarCheck, ChevronLeft, Pin } from "lucide-react";
+import { CalendarCheck, ChevronLeft, Minus, Pin, Plus } from "lucide-react";
 import {
+  LEFTOVER_MAX,
   MEAL_TIME_LABELS,
   isUnauthorized,
   recipeService,
@@ -8,7 +9,14 @@ import {
 } from "@/services";
 import { AppBackground } from "./AppBackground";
 import { useUnlockGate } from "./useUnlockGate";
-import { dateKo, daysAgoKo, relativeKo, todayLocal } from "@/lib/format";
+import {
+  dateKo,
+  daysAgoKo,
+  leftoverUnitKo,
+  parseLeftover,
+  relativeKo,
+  todayLocal,
+} from "@/lib/format";
 import { PinnedBadge } from "./PinnedBadge";
 
 interface Props {
@@ -34,6 +42,14 @@ export function RecipeDetailScreen({
   /** Records the day (`YYYY-MM-DD`) the recipe was made; null clears it. */
   const recordMade = (day: string | null) =>
     requireUnlock(() => void saveLastMade(day));
+  // True while a leftover change is being saved: −/+ wait for it, so quick
+  // taps can't send amounts out of order (each sends the new amount).
+  const [leftoverSaving, setLeftoverSaving] = useState(false);
+  // The typed amount while [숫자 입력] is open; null shows the −/+ row.
+  const [leftoverDraft, setLeftoverDraft] = useState<string | null>(null);
+  /** Records how much is left (the new amount); null clears it. */
+  const changeLeftover = (amount: number | null, onSaved?: () => void) =>
+    requireUnlock(() => void saveLeftover(amount, onSaved));
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +94,26 @@ export function RecipeDetailScreen({
     setRecipe(updated);
   }
 
+  async function saveLeftover(amount: number | null, onSaved?: () => void) {
+    setLeftoverSaving(true);
+    let updated: Recipe;
+    try {
+      updated =
+        amount === null
+          ? await recipeService.clearLeftover(recipeId)
+          : await recipeService.setLeftover(recipeId, amount);
+    } catch (error) {
+      setLeftoverSaving(false);
+      if (!isUnauthorized(error)) throw error;
+      // The remembered password is no longer valid: ask for it again.
+      changeLeftover(amount, onSaved);
+      return;
+    }
+    setLeftoverSaving(false);
+    setRecipe(updated);
+    onSaved?.();
+  }
+
   async function handleDelete() {
     try {
       await recipeService.deleteRecipe(recipeId);
@@ -111,6 +147,10 @@ export function RecipeDetailScreen({
 
   const pinned = recipe.pinnedAt !== null;
   const today = todayLocal();
+  const leftover = recipe.leftover;
+  const leftoverUnit = leftoverUnitKo(recipe.leftoverUnit);
+  const typedLeftover =
+    leftoverDraft === null ? null : parseLeftover(leftoverDraft);
 
   return (
     <AppBackground>
@@ -202,6 +242,120 @@ export function RecipeDetailScreen({
             </button>
           ) : null}
         </div>
+      </Section>
+
+      <Section title="남은 양" delay="rise-2">
+        {leftoverDraft === null ? (
+          <>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                aria-label="하나 줄이기"
+                disabled={leftoverSaving || leftover === null || leftover <= 0}
+                onClick={() => {
+                  if (leftover !== null) changeLeftover(leftover - 1);
+                }}
+                className="grid size-11 shrink-0 place-items-center rounded-full border border-ink/15 bg-white/70 text-ink-soft disabled:opacity-40"
+              >
+                <Minus className="size-5" aria-hidden />
+              </button>
+              <p
+                data-testid="leftover"
+                className="min-w-0 flex-1 truncate text-center"
+              >
+                {leftover === null ? (
+                  <span className="text-[15px] text-ink-soft">
+                    아직 기록이 없어요
+                  </span>
+                ) : leftover === 0 ? (
+                  <span className="text-[17px] font-bold">다 먹었어요</span>
+                ) : (
+                  <>
+                    <span className="text-[22px] font-black tabular-nums">
+                      {leftover}
+                    </span>
+                    <span className="text-[15px] font-semibold text-ink-soft">
+                      {leftoverUnit}
+                    </span>
+                  </>
+                )}
+              </p>
+              <button
+                type="button"
+                aria-label="하나 늘리기"
+                disabled={leftoverSaving || (leftover ?? 0) >= LEFTOVER_MAX}
+                onClick={() =>
+                  changeLeftover(leftover === null ? 1 : leftover + 1)
+                }
+                className="grid size-11 shrink-0 place-items-center rounded-full bg-clay text-cream disabled:opacity-40"
+              >
+                <Plus className="size-5" aria-hidden />
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setLeftoverDraft(leftover === null ? "" : String(leftover))
+                }
+                className="rounded-full border border-ink/15 bg-white/70 px-4 py-2 text-[13px] font-medium text-ink-soft"
+              >
+                숫자 입력
+              </button>
+              {leftover !== null ? (
+                <button
+                  type="button"
+                  aria-label="남은 양 기록 지우기"
+                  disabled={leftoverSaving}
+                  onClick={() => changeLeftover(null)}
+                  className="px-2 py-2.5 text-[12px] font-medium text-ink-faint underline underline-offset-2"
+                >
+                  기록 지우기
+                </button>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (typedLeftover === null || leftoverSaving) return;
+              changeLeftover(typedLeftover, () => setLeftoverDraft(null));
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-cream/70 px-4 py-3 ring-clay/40 focus-within:ring-2">
+                <input
+                  inputMode="numeric"
+                  aria-label="남은 양 입력"
+                  value={leftoverDraft}
+                  onChange={(e) => setLeftoverDraft(e.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-[15px] tabular-nums outline-none"
+                />
+                <span className="max-w-[40%] shrink-0 truncate text-[14px] text-ink-soft">
+                  {leftoverUnit}
+                </span>
+              </label>
+              <button
+                type="submit"
+                disabled={typedLeftover === null || leftoverSaving}
+                className="shrink-0 rounded-2xl bg-ink px-4 py-3 text-[14px] font-semibold text-cream disabled:opacity-40"
+              >
+                저장
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeftoverDraft(null)}
+                className="shrink-0 px-2 py-3 text-[13px] font-medium text-ink-soft"
+              >
+                취소
+              </button>
+            </div>
+            <p className="mt-2 text-[12px] text-ink-faint">
+              0부터 {LEFTOVER_MAX}까지 정수만 넣을 수 있어요.
+            </p>
+          </form>
+        )}
       </Section>
 
       {recipe.ingredients.length > 0 ? (
