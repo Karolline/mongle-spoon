@@ -127,7 +127,7 @@ paths:
       summary: Replace a recipe
       description: |
         Full replacement of every editable field. `id`, `createdAt`,
-        `pinnedAt` and `lastMadeOn` are kept; `updatedAt` is set to the
+        `pinnedAt`, `lastMadeOn` and `leftover` are kept; `updatedAt` is set to the
         current time.
       security:
         - adminPassword: []
@@ -280,6 +280,67 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /recipes/{recipeId}/leftover:
+    parameters:
+      - name: recipeId
+        in: path
+        required: true
+        schema:
+          type: string
+    put:
+      tags: [recipes]
+      operationId: setLeftover
+      summary: Record how much of a recipe is left
+      description: |
+        Sets `leftover` to the given whole number (0 means all eaten). The
+        client sends the new absolute amount, not a change. `updatedAt` does
+        not change.
+      security:
+        - adminPassword: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeftoverInput"
+      responses:
+        "200":
+          description: The updated recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [recipes]
+      operationId: clearLeftover
+      summary: Clear how much of a recipe is left
+      description: |
+        Sets `leftover` to null (not recorded; also when it was already null).
+        `leftoverUnit` is kept. `updatedAt` does not change.
+      security:
+        - adminPassword: []
+      responses:
+        "200":
+          description: The updated recipe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Recipe"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/WritesDisabled"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /auth/verify:
     post:
       tags: [auth]
@@ -364,6 +425,13 @@ components:
         notes:
           type: string
           default: ""
+        leftoverUnit:
+          type: string
+          default: ""
+          description: |
+            Free text unit of the leftover amount; empty means the default
+            (shown as "개"). The amount itself is set with `setLeftover`.
+          example: 큐브
 
     Recipe:
       type: object
@@ -381,6 +449,8 @@ components:
         - updatedAt
         - pinnedAt
         - lastMadeOn
+        - leftover
+        - leftoverUnit
       properties:
         id:
           type: string
@@ -416,6 +486,14 @@ components:
           type: [string, "null"]
           format: date
           description: The day the recipe was last made; null when never recorded.
+        leftover:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 999
+          description: How much of the made batch is left; null when not recorded.
+        leftoverUnit:
+          type: string
+          description: Unit of `leftover`; empty means the default ("개").
       example:
         id: "1"
         name: 소고기 애호박 미음
@@ -430,6 +508,8 @@ components:
         updatedAt: "2026-09-29T08:00:00Z"
         pinnedAt: null
         lastMadeOn: "2026-10-11"
+        leftover: 5
+        leftoverUnit: 큐브
 
     LastMadeInput:
       type: object
@@ -440,6 +520,18 @@ components:
           type: string
           format: date
           example: "2026-10-11"
+
+    LeftoverInput:
+      type: object
+      additionalProperties: false
+      required: [leftover]
+      properties:
+        leftover:
+          type: integer
+          minimum: 0
+          maximum: 999
+          description: A whole number; 0 means all eaten.
+          example: 5
 
     Error:
       type: object

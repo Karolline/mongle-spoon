@@ -37,6 +37,8 @@ class RecipeInput(ApiModel):
         default_factory=list, json_schema_extra={"uniqueItems": True}
     )
     notes: str = ""
+    # Unit of the leftover amount (e.g. "큐브"); "" means the default ("개").
+    leftover_unit: str = ""
 
     @field_validator("name")
     @classmethod
@@ -65,9 +67,21 @@ class Recipe(ApiModel):
     updated_at: datetime
     pinned_at: datetime | None = None
     last_made_on: date | None = None
+    leftover: int | None = None
+    leftover_unit: str = ""
 
 
 class LastMadeInput(ApiModel):
     """The day a recipe was cooked. The client picks it, in the user's own time zone."""
 
     last_made_on: date
+
+
+LEFTOVER_MAX = 999
+
+
+class LeftoverInput(ApiModel):
+    """How much of the made batch is left: a whole number from 0 to 999."""
+
+    # strict: reject 2.5 and "3" instead of coercing them.
+    leftover: int = Field(ge=0, le=LEFTOVER_MAX, strict=True)

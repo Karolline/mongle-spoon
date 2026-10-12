@@ -14,6 +14,7 @@ FULL_INPUT = {
     "servings": "2회분",
     "mealTimes": ["breakfast"],
     "notes": "",
+    "leftoverUnit": "큐브",
 }
 
 RECIPE_KEYS = {
@@ -28,6 +29,8 @@ RECIPE_KEYS = {
     "updatedAt",
     "pinnedAt",
     "lastMadeOn",
+    "leftover",
+    "leftoverUnit",
 }
 
 
@@ -66,6 +69,8 @@ def test_create_returns_201_with_full_recipe(empty_client: TestClient) -> None:
     assert body["createdAt"] == body["updatedAt"]
     assert body["pinnedAt"] is None
     assert body["lastMadeOn"] is None
+    assert body["leftover"] is None
+    assert body["leftoverUnit"] == "큐브"
 
 
 def test_create_with_only_name_fills_defaults(empty_client: TestClient) -> None:
@@ -75,6 +80,8 @@ def test_create_with_only_name_fills_defaults(empty_client: TestClient) -> None:
     assert body["ingredients"] == []
     assert body["mealTimes"] == []
     assert body["instructions"] == body["servings"] == body["notes"] == ""
+    assert body["leftover"] is None
+    assert body["leftoverUnit"] == ""
 
 
 def test_create_validation_errors(empty_client: TestClient) -> None:
@@ -173,6 +180,53 @@ def test_last_made_must_be_a_date(client: TestClient) -> None:
         assert client.put(path, json=body).status_code == 422, body
 
 
+def test_set_and_clear_leftover(empty_client: TestClient) -> None:
+    created = empty_client.post("/api/recipes", json=FULL_INPUT).json()
+    path = f"/api/recipes/{created['id']}/leftover"
+
+    res = empty_client.put(path, json={"leftover": 5})
+    assert res.status_code == 200
+    # Only the amount changes; updatedAt is kept.
+    assert res.json() == {**created, "leftover": 5}
+    assert empty_client.get(f"/api/recipes/{created['id']}").json()["leftover"] == 5
+
+    for amount in (0, 999):
+        assert empty_client.put(path, json={"leftover": amount}).json()["leftover"] == amount
+
+    res = empty_client.delete(path)
+    assert res.status_code == 200
+    assert res.json() == created
+
+
+def test_leftover_must_be_a_whole_number_from_0_to_999(empty_client: TestClient) -> None:
+    created = empty_client.post("/api/recipes", json=FULL_INPUT).json()
+    path = f"/api/recipes/{created['id']}/leftover"
+    for body in (
+        {},
+        {"leftover": None},
+        {"leftover": -1},
+        {"leftover": 1000},
+        {"leftover": 2.5},
+        {"leftover": "3"},
+        {"leftover": True},
+        {"leftover": 3, "extra": 1},
+    ):
+        assert empty_client.put(path, json=body).status_code == 422, body
+    assert empty_client.get(f"/api/recipes/{created['id']}").json() == created
+
+
+def test_update_keeps_leftover_and_changes_unit(empty_client: TestClient) -> None:
+    created = empty_client.post("/api/recipes", json=FULL_INPUT).json()
+    empty_client.put(f"/api/recipes/{created['id']}/leftover", json={"leftover": 4})
+
+    res = empty_client.put(
+        f"/api/recipes/{created['id']}", json={**FULL_INPUT, "leftoverUnit": "통"}
+    )
+    assert res.status_code == 200
+    assert res.json()["leftover"] == 4
+    assert res.json()["leftoverUnit"] == "통"
+
+
 def test_unknown_id_returns_404(empty_client: TestClient) -> None:
     for res in (
         empty_client.get("/api/recipes/nope"),
@@ -181,6 +235,8 @@ def test_unknown_id_returns_404(empty_client: TestClient) -> None:
         empty_client.delete("/api/recipes/nope/pin"),
         empty_client.put("/api/recipes/nope/last-made", json={"lastMadeOn": "2026-10-11"}),
         empty_client.delete("/api/recipes/nope/last-made"),
+        empty_client.put("/api/recipes/nope/leftover", json={"leftover": 5}),
+        empty_client.delete("/api/recipes/nope/leftover"),
     ):
         assert res.status_code == 404
         assert res.json() == {"detail": "Recipe not found"}
@@ -220,6 +276,8 @@ def test_every_route_goes_through_require_access(store: RecipeStore) -> None:
         client.delete("/api/recipes/x/pin"),
         client.put("/api/recipes/x/last-made", json={"lastMadeOn": "2026-10-11"}),
         client.delete("/api/recipes/x/last-made"),
+        client.put("/api/recipes/x/leftover", json={"leftover": 5}),
+        client.delete("/api/recipes/x/leftover"),
         client.post("/api/auth/verify"),
     ]
-    assert [r.status_code for r in responses] == [418] * 10
+    assert [r.status_code for r in responses] == [418] * 12

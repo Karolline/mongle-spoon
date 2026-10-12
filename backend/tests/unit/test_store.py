@@ -307,6 +307,56 @@ def test_set_last_made_unknown_id_returns_none(store: RecipeStore) -> None:
     assert store.set_last_made("nope", date(2026, 9, 3)) is None
 
 
+def test_set_and_clear_leftover_keep_updated_at(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    assert created.leftover is None
+
+    left = store.set_leftover(created.id, 5)
+    assert left is not None
+    assert left.leftover == 5
+    assert left.updated_at == created.updated_at
+    assert store.get(created.id) == left
+
+    # 0 (all eaten) is a recorded amount, unlike None.
+    for amount in (0, 999):
+        changed = store.set_leftover(created.id, amount)
+        assert changed is not None and changed.leftover == amount
+
+    cleared = store.set_leftover(created.id, None)
+    assert cleared is not None
+    assert cleared.leftover is None
+    assert cleared.updated_at == created.updated_at
+
+
+def test_leftover_doesnt_change_the_list_order(store: RecipeStore) -> None:
+    older = store.create(RecipeInput(name="감자 미음"))
+    store.create(RecipeInput(name="당근 미음"))
+    store.set_leftover(older.id, 3)
+    assert names(store.list()) == ["당근 미음", "감자 미음"]
+
+
+def test_leftover_unit_is_saved_and_updated(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음", leftover_unit="큐브"))
+    assert created.leftover_unit == "큐브"
+    assert store.get(created.id) == created
+
+    updated = store.update(created.id, RecipeInput(name="감자 미음", leftover_unit="통"))
+    assert updated is not None and updated.leftover_unit == "통"
+    assert store.create(RecipeInput(name="당근 미음")).leftover_unit == ""
+
+
+def test_update_keeps_leftover(store: RecipeStore) -> None:
+    created = store.create(RecipeInput(name="감자 미음"))
+    store.set_leftover(created.id, 4)
+    updated = store.update(created.id, RecipeInput(name="감자 당근 미음"))
+    assert updated is not None
+    assert updated.leftover == 4
+
+
+def test_set_leftover_unknown_id_returns_none(store: RecipeStore) -> None:
+    assert store.set_leftover("nope", 1) is None
+
+
 def test_delete_is_idempotent(store: RecipeStore) -> None:
     created = store.create(RecipeInput(name="감자 미음"))
     store.delete(created.id)

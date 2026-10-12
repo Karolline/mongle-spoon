@@ -119,6 +119,15 @@ class RecipeStore:
             row.last_made_on = day
             return _to_model(row)
 
+    def set_leftover(self, recipe_id: str, amount: int | None) -> Recipe | None:
+        """Record how much is left (None clears it). updated_at is kept."""
+        with self._sessions.begin() as session:
+            row = session.get(RecipeRow, recipe_id)
+            if row is None:
+                return None
+            row.leftover = amount
+            return _to_model(row)
+
     def delete(self, recipe_id: str) -> None:
         """Idempotent: deleting an unknown id is a no-op."""
         with self._sessions.begin() as session:
@@ -141,6 +150,7 @@ class RecipeStore:
                     updated_at=recipe.updated_at,
                     pinned_at=recipe.pinned_at,
                     last_made_on=recipe.last_made_on,
+                    leftover=recipe.leftover,
                 )
                 _fill_row(row, recipe)
                 session.add(row)
@@ -158,6 +168,8 @@ def _fill_row(row: RecipeRow, data: RecipeInput | Recipe) -> None:
     row.instructions = data.instructions
     row.servings = data.servings
     row.notes = data.notes
+    # The amount itself isn't an editable field (set_leftover changes it).
+    row.leftover_unit = data.leftover_unit
     row.ingredients = [
         IngredientRow(position=i, name=ing.name, amount=ing.amount)
         for i, ing in enumerate(data.ingredients)
@@ -180,6 +192,8 @@ def _to_model(row: RecipeRow) -> Recipe:
         updated_at=row.updated_at,
         pinned_at=row.pinned_at,
         last_made_on=row.last_made_on,
+        leftover=row.leftover,
+        leftover_unit=row.leftover_unit,
     )
 
 
@@ -245,7 +259,11 @@ def seed(store: RecipeStore, now: datetime | None = None) -> None:
         ),
     ]
 
+    # How much is left of a few samples: (amount, unit). "" is the default unit.
+    leftovers = {"소고기 애호박 미음": (5, "큐브"), "닭안심 브로콜리 죽": (2, "")}
+
     for name, ingredients, instructions, servings, meal_times, notes, created, updated in samples:
+        leftover, leftover_unit = leftovers.get(name, (None, ""))
         store.add(
             Recipe(
                 id=str(uuid.uuid4()),
@@ -257,5 +275,7 @@ def seed(store: RecipeStore, now: datetime | None = None) -> None:
                 notes=notes,
                 created_at=days_ago(created),
                 updated_at=days_ago(updated),
+                leftover=leftover,
+                leftover_unit=leftover_unit,
             )
         )

@@ -21,6 +21,22 @@ def test_copies_every_recipe_unchanged(local_store: RecipeStore, store: RecipeSt
     assert store.list() == local_store.list()
 
 
+def test_copies_leftover_amount_and_unit(local_store: RecipeStore, store: RecipeStore) -> None:
+    recipe = local_store.create(RecipeInput(name="감자 미음", leftover_unit="큐브"))
+    local_store.set_leftover(recipe.id, 0)
+
+    copy_recipes(local_store, store)
+
+    copied = store.get(recipe.id)
+    assert copied is not None
+    assert (copied.leftover, copied.leftover_unit) == (0, "큐브")
+    # The seed has amounts too; every one of them is copied.
+    assert [(r.leftover, r.leftover_unit) for r in store.list()] == [
+        (r.leftover, r.leftover_unit) for r in local_store.list()
+    ]
+    assert any(r.leftover for r in store.list())
+
+
 def test_target_still_accepts_new_recipes(local_store: RecipeStore, store: RecipeStore) -> None:
     copy_recipes(local_store, store)
     created = store.create(

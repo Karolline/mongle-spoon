@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.auth import WRITE_ERRORS, require_access, require_write
-from app.models import LastMadeInput, MealTime, Recipe, RecipeInput
+from app.models import LastMadeInput, LeftoverInput, MealTime, Recipe, RecipeInput
 from app.store import RecipeStore
 
 router = APIRouter(
@@ -123,6 +123,34 @@ def set_last_made(recipe_id: str, data: LastMadeInput, store: StoreDep) -> Recip
 )
 def clear_last_made(recipe_id: str, store: StoreDep) -> Recipe:
     recipe = store.set_last_made(recipe_id, None)
+    if recipe is None:
+        raise _not_found()
+    return recipe
+
+
+@router.put(
+    "/{recipe_id}/leftover",
+    response_model=Recipe,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
+    operation_id="setLeftover",
+)
+def set_leftover(recipe_id: str, data: LeftoverInput, store: StoreDep) -> Recipe:
+    recipe = store.set_leftover(recipe_id, data.leftover)
+    if recipe is None:
+        raise _not_found()
+    return recipe
+
+
+@router.delete(
+    "/{recipe_id}/leftover",
+    response_model=Recipe,
+    responses={**NOT_FOUND, **WRITE_ERRORS},
+    dependencies=WRITE,
+    operation_id="clearLeftover",
+)
+def clear_leftover(recipe_id: str, store: StoreDep) -> Recipe:
+    recipe = store.set_leftover(recipe_id, None)
     if recipe is None:
         raise _not_found()
     return recipe

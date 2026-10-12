@@ -95,6 +95,29 @@ def test_a_database_from_before_alembic_can_be_stamped_and_upgraded(url):
     assert recipe.meal_times == ["breakfast"]
     assert recipe.pinned_at is None
     assert recipe.last_made_on is None
+    assert recipe.leftover is None
+    assert recipe.leftover_unit == ""
+    engine.dispose()
+
+
+def test_the_previous_image_can_still_insert_after_upgrading(url):
+    # Rolling back the image doesn't roll back the database: an insert that
+    # doesn't name the newer columns must still work.
+    command.upgrade(alembic_config(url), "head")
+    engine = create_engine(normalize_url(url))
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO recipes (id, name, instructions, servings, notes,"
+                " created_at, updated_at) VALUES ('r1', '감자 미음', '', '', '',"
+                " '2026-09-01 09:00:00', '2026-09-02 09:00:00')"
+            )
+        )
+
+    recipe = RecipeStore(engine=engine).get("r1")
+    assert recipe is not None
+    assert recipe.leftover is None
+    assert recipe.leftover_unit == ""
     engine.dispose()
 
 

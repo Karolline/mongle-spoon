@@ -67,6 +67,11 @@ class RecipeRow(Base):
     # The day the recipe was last cooked (a calendar date, no time or zone);
     # None when never recorded.
     last_made_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # How much of the made batch is left (a whole number, 0-999); None when
+    # not recorded. Its unit is free text; "" means the default ("개").
+    leftover: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # server_default lets an image from before this column still insert rows.
+    leftover_unit: Mapped[str] = mapped_column(Text, default="", server_default="")
 
     ingredients: Mapped[list["IngredientRow"]] = relationship(
         order_by="IngredientRow.position",

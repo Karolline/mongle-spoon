@@ -17,6 +17,8 @@ def write_requests(client: TestClient, recipe_id: str) -> list[int]:
             f"/api/recipes/{recipe_id}/last-made", json={"lastMadeOn": "2026-10-11"}
         ).status_code,
         client.delete(f"/api/recipes/{recipe_id}/last-made").status_code,
+        client.put(f"/api/recipes/{recipe_id}/leftover", json={"leftover": 5}).status_code,
+        client.delete(f"/api/recipes/{recipe_id}/leftover").status_code,
         client.delete(f"/api/recipes/{recipe_id}").status_code,
     ]
 
@@ -35,7 +37,7 @@ def test_writing_without_password_is_rejected(anon_client: TestClient) -> None:
     recipe_id = first_id(anon_client)
     before = anon_client.get("/api/recipes").json()
 
-    assert write_requests(anon_client, recipe_id) == [401] * 7
+    assert write_requests(anon_client, recipe_id) == [401] * 9
 
     res = anon_client.delete(f"/api/recipes/{recipe_id}")
     assert res.headers["www-authenticate"] == "Bearer"
@@ -50,11 +52,11 @@ def test_writing_with_wrong_password_is_rejected(
     anon_client: TestClient, authorization: str
 ) -> None:
     anon_client.headers["Authorization"] = authorization
-    assert write_requests(anon_client, first_id(anon_client)) == [401] * 7
+    assert write_requests(anon_client, first_id(anon_client)) == [401] * 9
 
 
 def test_writing_with_password_succeeds(client: TestClient) -> None:
-    assert write_requests(client, first_id(client)) == [201, 200, 200, 200, 200, 200, 204]
+    assert write_requests(client, first_id(client)) == [201, 200, 200, 200, 200, 200, 200, 200, 204]
 
 
 def test_verify_checks_the_password(anon_client: TestClient) -> None:
@@ -73,7 +75,7 @@ def test_writes_are_disabled_without_admin_password(
     recipe_id = first_id(client)
 
     assert client.get(f"/api/recipes/{recipe_id}").status_code == 200
-    assert write_requests(client, recipe_id) == [503] * 7
+    assert write_requests(client, recipe_id) == [503] * 9
     # Any guess is refused, including an empty password.
     client.headers["Authorization"] = "Bearer "
     assert client.post("/api/auth/verify").status_code == 503
