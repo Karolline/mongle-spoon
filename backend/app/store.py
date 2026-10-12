@@ -44,14 +44,26 @@ class RecipeStore:
                 )
             )
         # Pinned recipes first (most recently pinned first), then the rest by
-        # the day they were last made, never-made ones last, then updated_at.
-        # NULLs sort differently per database, so "has a value" is an explicit
-        # CASE instead of relying on NULL ordering.
+        # one key, most recent first: updated_at, or last_made_on when that day
+        # is later (a day counts as its midnight UTC, so on the same day the
+        # update wins). Ties: updated_at, then id. NULLs sort differently per
+        # database, so "is pinned" is an explicit CASE instead of relying on
+        # NULL ordering; a NULL last_made_on makes the comparison NULL, which
+        # falls through to updated_at.
+        # The date-vs-datetime comparison is portable: PostgreSQL casts the
+        # date to midnight (updated_at is a naive UTC timestamp), and SQLite
+        # compares the stored strings, where "YYYY-MM-DD" sorts before any time
+        # that day ("YYYY-MM-DD HH:MM:SS.ffffff"). An update at exactly
+        # midnight wins on both, so a made-day key always belongs to a row
+        # updated before that day, and equal keys order the same way on both.
+        sort_key = case(
+            (RecipeRow.last_made_on > RecipeRow.updated_at, RecipeRow.last_made_on),
+            else_=RecipeRow.updated_at,
+        )
         stmt = stmt.order_by(
             case((RecipeRow.pinned_at.is_(None), 1), else_=0),
             RecipeRow.pinned_at.desc(),
-            case((RecipeRow.last_made_on.is_(None), 1), else_=0),
-            RecipeRow.last_made_on.desc(),
+            sort_key.desc(),
             RecipeRow.updated_at.desc(),
             RecipeRow.id,
         )

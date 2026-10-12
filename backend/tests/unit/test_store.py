@@ -1,11 +1,41 @@
-from datetime import date
+import uuid
+from datetime import UTC, date, datetime
 
-from app.models import Ingredient, MealTime, RecipeInput
+from app.models import Ingredient, MealTime, Recipe, RecipeInput
 from app.store import RecipeStore
 
 
 def names(recipes) -> list[str]:
     return [r.name for r in recipes]
+
+
+def add(
+    store: RecipeStore,
+    name: str,
+    updated: datetime,
+    made: date | None = None,
+    recipe_id: str | None = None,
+) -> Recipe:
+    """Insert a recipe with a given updated_at (and day made), bypassing the clock."""
+    return store.add(
+        Recipe(
+            id=recipe_id or str(uuid.uuid4()),
+            name=name,
+            ingredients=[],
+            instructions="",
+            servings="",
+            meal_times=[],
+            notes="",
+            created_at=updated,
+            updated_at=updated,
+            last_made_on=made,
+        )
+    )
+
+
+def at(day: int, hour: int = 12) -> datetime:
+    """A UTC time in September 2026."""
+    return datetime(2026, 9, day, hour, tzinfo=UTC)
 
 
 def test_seed_covers_all_meal_times(seeded_store: RecipeStore) -> None:
@@ -137,18 +167,84 @@ def test_pin_unknown_id_returns_none(store: RecipeStore) -> None:
     assert store.unpin("nope") is None
 
 
-def test_recently_made_recipes_come_next_never_made_last(
+def test_recently_made_recipes_come_before_older_updates(
     seeded_store: RecipeStore,
 ) -> None:
+    # The seed was last updated before these days, so being made is more recent.
     by_updated = seeded_store.list()
     oldest, second_oldest = by_updated[-1], by_updated[-2]
     seeded_store.set_last_made(oldest.id, date(2026, 9, 3))
-    seeded_store.set_last_made(second_oldest.id, date(2026, 9, 1))
+    seeded_store.set_last_made(second_oldest.id, date(2026, 9, 2))
 
     result = seeded_store.list()
     assert names(result[:2]) == [oldest.name, second_oldest.name]
-    # Never made: the usual updated_at order.
+    # The rest keep their updated_at order.
     assert names(result[2:]) == names(by_updated[:-2])
+
+
+def test_new_recipe_comes_before_one_made_earlier(store: RecipeStore) -> None:
+    add(store, "감자 미음", updated=at(1), made=date(2026, 9, 3))
+    add(store, "당근 미음", updated=at(4))
+
+    assert names(store.list()) == ["당근 미음", "감자 미음"]
+
+
+def test_recently_made_comes_before_one_updated_earlier(store: RecipeStore) -> None:
+    add(store, "감자 미음", updated=at(1), made=date(2026, 9, 3))
+    add(store, "당근 미음", updated=at(2))
+
+    assert names(store.list()) == ["감자 미음", "당근 미음"]
+
+
+def test_never_made_recipes_mix_in_by_updated_at(store: RecipeStore) -> None:
+    add(store, "오래된 미음", updated=at(1))
+    add(store, "만든 미음", updated=at(1, hour=6), made=date(2026, 9, 3))
+    add(store, "새 미음", updated=at(5))
+    add(store, "중간 미음", updated=at(2))
+
+    assert names(store.list()) == ["새 미음", "만든 미음", "중간 미음", "오래된 미음"]
+
+
+def test_update_on_the_day_made_counts_as_more_recent(store: RecipeStore) -> None:
+    add(store, "만든 미음", updated=at(1), made=date(2026, 9, 3))
+    add(store, "자정 미음", updated=at(3, hour=0))  # exactly midnight UTC
+    add(store, "아침 미음", updated=at(3, hour=8))
+
+    assert names(store.list()) == ["아침 미음", "자정 미음", "만든 미음"]
+
+
+def test_update_after_the_day_made_sorts_by_the_update(store: RecipeStore) -> None:
+    add(store, "고친 미음", updated=at(4), made=date(2026, 9, 2))
+    add(store, "만든 미음", updated=at(1), made=date(2026, 9, 3))
+
+    assert names(store.list()) == ["고친 미음", "만든 미음"]
+
+
+def test_equal_sort_keys_fall_back_to_updated_at_then_id(store: RecipeStore) -> None:
+    # Made the same day: all three sort by that day's midnight.
+    add(store, "c", updated=at(1), made=date(2026, 9, 3), recipe_id="c")
+    add(store, "b", updated=at(2), made=date(2026, 9, 3), recipe_id="b")
+    add(store, "a", updated=at(1), made=date(2026, 9, 3), recipe_id="a")
+    # Never made, updated at the same time.
+    add(store, "e", updated=at(1, hour=6), recipe_id="e")
+    add(store, "d", updated=at(1, hour=6), recipe_id="d")
+
+    assert names(store.list()) == ["b", "a", "c", "d", "e"]
+
+
+def test_new_order_applies_to_search_and_filter_results(store: RecipeStore) -> None:
+    store.create(RecipeInput(name="감자 미음", meal_times=[MealTime.SNACK]))
+    made = store.create(RecipeInput(name="당근 미음", meal_times=[MealTime.SNACK]))
+    store.create(RecipeInput(name="감자 죽", meal_times=[MealTime.SNACK]))
+    store.set_last_made(made.id, date(2026, 9, 3))
+    store.create(RecipeInput(name="양파 미음", meal_times=[MealTime.BREAKFAST]))
+
+    assert names(store.list(search="미음")) == ["당근 미음", "양파 미음", "감자 미음"]
+    assert names(store.list(meal_time=MealTime.SNACK)) == [
+        "당근 미음",
+        "감자 죽",
+        "감자 미음",
+    ]
 
 
 def test_pinned_recipes_still_come_before_recently_made(
@@ -159,6 +255,15 @@ def test_pinned_recipes_still_come_before_recently_made(
     seeded_store.pin(last.id)
 
     assert names(seeded_store.list()[:2]) == [last.name, first.name]
+
+
+def test_pinned_recipes_come_first_whatever_their_sort_key(store: RecipeStore) -> None:
+    pinned = add(store, "고정 미음", updated=at(1))
+    add(store, "만든 미음", updated=at(1), made=date(2026, 9, 9))
+    add(store, "새 미음", updated=at(8))
+    store.pin(pinned.id)
+
+    assert names(store.list()) == ["고정 미음", "만든 미음", "새 미음"]
 
 
 def test_recipes_made_on_the_same_day_sort_by_updated_at(store: RecipeStore) -> None:

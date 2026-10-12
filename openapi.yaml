@@ -38,9 +38,11 @@ paths:
       summary: List recipes
       description: |
         Returns pinned recipes first (by `pinnedAt`, most recently pinned
-        first), then the rest by `lastMadeOn`, most recent first, with
-        recipes never made last. Ties (and never-made recipes) are sorted by
-        `updatedAt`, most recent first.
+        first), then the rest by the later of `lastMadeOn` (as midnight UTC
+        of that day) and `updatedAt`, most recent first; recipes never made
+        use `updatedAt`. On the same day, an update counts as more recent
+        than being made. Ties are sorted by `updatedAt`, most recent first,
+        then by `id`.
         `search` and `mealTime` combine with AND, and apply to pinned recipes
         too. With neither, all recipes are returned.
       parameters:

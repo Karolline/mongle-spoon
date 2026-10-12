@@ -12,7 +12,7 @@ uv run pytest tests/integration   # integration tests only
 
 | Folder | What it covers | Database |
 |---|---|---|
-| `tests/unit/test_store.py` | `RecipeStore` on its own: search, meal-time filtering, sorting (pinned first, then by the day last made), create/update/delete, pin/unpin, recording and clearing the day made, seeding, long text. | In-memory SQLite (`sqlite://`) |
+| `tests/unit/test_store.py` | `RecipeStore` on its own: search, meal-time filtering, sorting (pinned first, then by the later of the day last made and the last update, with ties and same-day cases), create/update/delete, pin/unpin, recording and clearing the day made, seeding, long text. | In-memory SQLite (`sqlite://`) |
 | `tests/unit/test_copy_db.py` | `copy_recipes()`: copies every recipe unchanged from a SQLite database, refuses a target that already has recipes, and the target still accepts new recipes. `main()` migrates a new target before copying. | In-memory SQLite as the source, `TEST_DATABASE_URL` as the target; SQLite files for `main()` |
 | `tests/unit/test_db.py` | `normalize_url()`: plain PostgreSQL URLs get the psycopg driver, others are unchanged. | None |
 | `tests/unit/test_devserver.py` | The dev server's port check: refuses to start uvicorn when the port is taken. Migrates before starting, and doesn't start on an unstamped database. | None |
@@ -69,7 +69,7 @@ All frontend tests are unit and component tests; none need a running backend.
 
 | File | What it covers |
 |---|---|
-| `services/mockRecipeService.test.ts` | The in-memory mock: search, meal-time filtering, sorting (pinned first, then by the day last made), CRUD, pin/unpin, recording the day made, and rejecting writes until unlocked. |
+| `services/mockRecipeService.test.ts` | The in-memory mock: search, meal-time filtering, sorting (pinned first, then by the later of the day last made and the last update), CRUD, pin/unpin, recording the day made, and rejecting writes until unlocked. |
 | `lib/format.test.ts` | Date helpers: today's date in the device's time zone, and "오늘" / "어제" / "3일 전" labels for the day a recipe was made. |
 | `services/httpRecipeService.test.ts` | The HTTP service with a stubbed `fetch` and in-memory password storage: URLs, query parameters, request bodies, error handling, and the password (sent on writes only, remembered, forgotten on 401). |
 | `components/screens.test.tsx` | The list, detail, and form screens rendered against the mock service. Most tests start unlocked; the "write protection" group covers the password dialog. |
