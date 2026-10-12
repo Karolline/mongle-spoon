@@ -34,7 +34,7 @@ Save the recipes I cook for my baby, and look them up easily on my phone when I 
 
 ## Finding recipes
 
-- **List:** pinned recipes first (most recently pinned first), then the rest sorted by the day they were last made (most recent first). Recipes never made come last. Recipes made on the same day, and recipes never made, are sorted by most recently updated first.
+- **List:** pinned recipes first (most recently pinned first), then the rest sorted by the more recent of the day they were last made and their last update (added or edited), most recent first. Recipes never made use their last update, so a recipe just added or edited shows right after the pinned ones. On the same day, the update counts as more recent than being made (a day counts as its start, midnight UTC). Recipes that still tie are sorted by most recently updated first.
 - **Pin:** any number of recipes can be pinned to the top of the list (e.g. what to cook today). Pinning and unpinning don't change the recipe's "updated" time.
 - **Last made:** each recipe can record the day it was last made (a date, no time). [오늘 만들었어요] records today, in the phone's time zone; another day (e.g. yesterday) can be picked instead, but not a future day. Recording a day replaces the previous one, so an earlier day fixes a mistake, and [기록 지우기] removes it. Recording doesn't change the recipe's "updated" time.
 - **Search:** one search box that matches both recipe names and ingredient names.

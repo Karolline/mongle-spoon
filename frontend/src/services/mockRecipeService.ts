@@ -154,18 +154,26 @@ function laterFirst(
   return value(b) - value(a);
 }
 
-// YYYY-MM-DD as a number keeps the calendar order.
-const dayNumber = (day: string) => Number(day.replaceAll("-", ""));
+/**
+ * The later of the last update and the day last made, where a day counts as
+ * its midnight UTC (so on the same day the update is more recent).
+ */
+function recency(recipe: Recipe): number {
+  const updated = time(recipe.updatedAt);
+  if (recipe.lastMadeOn === null) return updated;
+  return Math.max(updated, time(`${recipe.lastMadeOn}T00:00:00Z`));
+}
 
 /**
- * Pinned first (most recently pinned first), then most recently made (never
- * made last), then most recently updated.
+ * Pinned first (most recently pinned first), then most recent of made or
+ * updated, then most recently updated, then by id (like the backend).
  */
-function byPinThenMadeThenUpdated(a: Recipe, b: Recipe): number {
+function byPinThenRecency(a: Recipe, b: Recipe): number {
   return (
     laterFirst(a.pinnedAt, b.pinnedAt, time) ||
-    laterFirst(a.lastMadeOn, b.lastMadeOn, dayNumber) ||
-    time(b.updatedAt) - time(a.updatedAt)
+    recency(b) - recency(a) ||
+    time(b.updatedAt) - time(a.updatedAt) ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
   );
 }
 
@@ -192,7 +200,7 @@ export const mockRecipeService: RecipeService = {
     const result = store
       .filter((r) => matchesSearch(r, search))
       .filter((r) => (mealTime ? r.mealTimes.includes(mealTime) : true))
-      .sort(byPinThenMadeThenUpdated)
+      .sort(byPinThenRecency)
       .map(clone);
     return delay(result);
   },

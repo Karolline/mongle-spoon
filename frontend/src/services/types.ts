@@ -41,8 +41,8 @@ export interface ListRecipesParams {
 
 /**
  * Lists put pinned recipes first (most recently pinned first), then the rest
- * by the day they were last made (most recent first, never made last), then
- * by most recently updated.
+ * by the later of the day last made (as midnight UTC) and the last update,
+ * most recent first, then by most recently updated, then by id.
  *
  * Reading is public. Every other method that changes a recipe needs the admin password:
  * call `unlock` first. Writes rejected for a wrong password throw an ApiError

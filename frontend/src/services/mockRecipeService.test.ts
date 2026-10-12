@@ -98,30 +98,83 @@ describe("mockRecipeService", () => {
   });
 
   describe("last made", () => {
-    it("puts recently made recipes next, most recent first, never made last", async () => {
-      const before = (await mockRecipeService.listRecipes()).map((r) => r.id);
+    const listIds = async () =>
+      (await mockRecipeService.listRecipes()).map((r) => r.id);
+
+    // Seeds are updated 1, 3, 6, 9 and 14 days before this time.
+    beforeEach(async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-12T09:00:00Z"));
+      resetMockRecipes();
+      await mockRecipeService.unlock(MOCK_PASSWORD);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("sorts by the later of the day made and the last update", async () => {
+      const before = await listIds(); // updated 10-11, 10-09, 10-06, 10-03, 09-28
       const [oldest, secondOldest] = [before.at(-1)!, before.at(-2)!];
-      await mockRecipeService.setLastMade(oldest, "2026-10-09");
+      await mockRecipeService.setLastMade(oldest, "2026-10-10");
       await mockRecipeService.setLastMade(secondOldest, "2026-10-11");
 
-      const after = (await mockRecipeService.listRecipes()).map((r) => r.id);
-      expect(after).toEqual([secondOldest, oldest, ...before.slice(0, -2)]);
+      // Never-made recipes mix in by their update instead of going last.
+      expect(await listIds()).toEqual([
+        before[0],
+        secondOldest,
+        oldest,
+        ...before.slice(1, -2),
+      ]);
+    });
+
+    it("puts a new recipe above one made earlier", async () => {
+      const made = (await listIds())[0];
+      await mockRecipeService.setLastMade(made, "2026-10-12");
+      vi.setSystemTime(new Date("2026-10-13T09:00:00Z"));
+      const created = await mockRecipeService.createRecipe({
+        ...blank,
+        name: "새 미음",
+      });
+
+      expect((await listIds()).slice(0, 2)).toEqual([created.id, made]);
+    });
+
+    it("counts an update on the day made as more recent", async () => {
+      const before = await listIds();
+      const oldest = before.at(-1)!;
+      await mockRecipeService.setLastMade(oldest, "2026-10-11");
+      // before[1] edited at exactly midnight UTC on the day made.
+      vi.setSystemTime(new Date("2026-10-11T00:00:00Z"));
+      await mockRecipeService.updateRecipe(before[1], { ...blank, name: "자정" });
+
+      expect((await listIds()).slice(0, 3)).toEqual([
+        before[0], // updated 10-11 09:00
+        before[1],
+        oldest,
+      ]);
     });
 
     it("puts pinned recipes before recently made ones", async () => {
       await mockRecipeService.setLastMade("seed-1", "2026-10-11");
       await mockRecipeService.pinRecipe("seed-5");
-      const ids = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      const ids = await listIds();
       expect(ids.slice(0, 2)).toEqual(["seed-5", "seed-1"]);
     });
 
     it("sorts recipes made on the same day by most recently updated", async () => {
-      const before = (await mockRecipeService.listRecipes()).map((r) => r.id);
+      const before = await listIds();
       for (const id of before) {
-        await mockRecipeService.setLastMade(id, "2026-10-11");
+        await mockRecipeService.setLastMade(id, "2026-10-20");
       }
-      const after = (await mockRecipeService.listRecipes()).map((r) => r.id);
-      expect(after).toEqual(before);
+      expect(await listIds()).toEqual(before);
+    });
+
+    it("sorts recipes with the same update time by id", async () => {
+      const a = await mockRecipeService.createRecipe({ ...blank, name: "가" });
+      const b = await mockRecipeService.createRecipe({ ...blank, name: "나" });
+      const top = (await listIds()).slice(0, 2);
+      expect(top).toEqual([a.id, b.id].sort());
     });
 
     it("keeps updatedAt, can be cleared, and survives an update", async () => {
