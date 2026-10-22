@@ -1,8 +1,113 @@
+# For Submitting
+
+This section is for the reviewers of the [AI Dev Tools Zoomcamp Project 1](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/tree/main/project). It maps each evaluation criterion to where it is covered in this repository. The rest of this README is the normal project documentation.
+
+| # | Criterion | Where / status |
+|---|---|---|
+| 1 | Problem Description | [Problem description](#1-problem-description) |
+| 2 | Product Specification | [`product-spec.md`](product-spec.md) + [GitHub Issues](https://github.com/Karolline/mongle-spoon/issues) (see [2](#2-product-specification)) |
+| 3 | Agent Team Specification | [Agent team](#3-agent-team-specification) |
+| 4 | Context Management | [`AGENTS.md`](AGENTS.md), [`CLAUDE.md`](CLAUDE.md), [`docs/`](docs/), [`.claude/`](.claude/) (see [4](#4-context-management)) |
+| 5 | Application | [Running locally](#running-locally) (see [5](#5-application)) |
+| 6 | Testing | [Testing](#testing), [`docs/testing.md`](docs/testing.md) |
+| 7 | Containerization | [Docker](#docker), [Docker Compose](#docker-compose-app--postgresql) |
+| 8 | Deployment | Live at https://mongle-spoon.onrender.com/ (see [8](#8-deployment)) |
+| 9 | CI/CD | [`.github/workflows/`](.github/workflows/) (see [9](#9-cicd)) |
+| 10 | Observability | Not implemented (see [10](#10-observability-11-alerting-12-on-call-agent)) |
+| 11 | Alerting on User Impact | Not implemented |
+| 12 | On-Call Agent | Not implemented |
+
+## 1. Problem description
+
+**Problem.** A parent cooking homemade baby food ends up with recipes scattered across chat messages, screenshots and memory. When deciding what to cook, they need to quickly find a recipe on a phone, often with one hand, and know which ingredients are left over.
+
+**What the system does.** Mongle Spoon is a mobile-first web app (UI in Korean, docs in English) that:
+
+- stores recipes: name (the only required field), ingredients with free-text amounts, servings, meal times (breakfast/lunch/dinner/snack), steps and notes;
+- lists recipes sorted by recently cooked or pinned, and searches them by name or ingredient;
+- filters by meal time;
+- records "I cooked this today" (or another date) and how much of a batch is left;
+- lets only the owner write: add, edit, pin, record and delete need a shared password set on the server (`ADMIN_PASSWORD`); anyone with the URL can read.
+
+**Expected behavior.** Open the URL on a phone, see the recipe list, search or filter it, open a recipe. After entering the password once, add/edit/delete recipes and record cooking. Data persists in the database across restarts and deployments. The full behavior is in [`product-spec.md`](product-spec.md); the HTTP contract is [`openapi.yaml`](openapi.yaml).
+
+## 2. Product specification
+
+- Written spec, written before the code and updated as features land: [`product-spec.md`](product-spec.md) (purpose, users and access, recipe fields, search, MVP scope, out of scope, tech stack, development order).
+- Public task tracker: [GitHub Issues](https://github.com/Karolline/mongle-spoon/issues) (open and closed). Each issue has a difficulty label, an area label, and a "시작 전에 정할 것" section listing what must be decided first. Issues are written in Korean (the author's language); everything else is English. When work on an issue starts, its feature moves into `product-spec.md`, and the release commit closes the issue with `Closes #N`.
+- Agent use of the tracker: the planning skill reads the open issues first and plans from them, and its task brief (goal, behavior, "Done when" acceptance criteria) is handed to the developer agent. See below.
+
+## 3. Agent team specification
+
+The project is built with [Claude Code](https://claude.com/claude-code). The team is defined in [`.claude/`](.claude/), and the human owner is the product owner who answers questions, approves merges and pushes.
+
+| Role | Definition | Responsibility |
+|---|---|---|
+| **Main session (planner / integrator)** | [`.claude/skills/plan-task/SKILL.md`](.claude/skills/plan-task/SKILL.md) (`/plan-task`) | Reads the backlog, asks the human every user-visible question, shows a mockup of changed screens, writes the task brief, launches the developer, relays the review, merges, and releases. |
+| **Developer agent** | [`.claude/agents/developer.md`](.claude/agents/developer.md) | Implements one brief in its own git worktree and branch, with tests and small commits. Cannot ask questions (it stops and reports instead), never commits to `main`, never pushes, never bumps the version. |
+| **Reviewer agent** | [`.claude/agents/reviewer.md`](.claude/agents/reviewer.md) | Read-only review of the branch against `AGENTS.md`, the spec and the brief; runs all tests (also on PostgreSQL for DB changes) and reports must-fix findings. |
+| **Release-notes skill** | [`.claude/skills/release-notes/SKILL.md`](.claude/skills/release-notes/SKILL.md) | Writes bilingual GitHub release notes, published only after the human OKs them. |
+
+**Workflow**
+
+```
+GitHub issue / request
+        │
+        ▼
+ /plan-task (main session) ── asks the human, shows mockup, writes the brief
+        │  human approves the brief
+        ▼
+ developer agent (background, own worktree + branch)
+        │  tests + small commits, reports back
+        ▼
+ reviewer agent (read-only) ── must-fix findings go back to the developer
+        │  review passes
+        ▼
+ main session: human OKs → fast-forward merge into main → full tests
+        │
+        ▼
+ release commit (CHANGELOG, version, tag, "Closes #N") → release notes
+        │  the human pushes
+        ▼
+ CI → dev deploy (automatic) → human checks dev → "Promote to prod" (manual)
+```
+
+Rules that keep the team safe are in [`AGENTS.md`](AGENTS.md) (for example: ask before adding a dependency, don't push, tests must pass before committing, Render MCP is read-only).
+
+## 4. Context management
+
+- [`AGENTS.md`](AGENTS.md) describes the project, the fixed tech stack, every command, the frontend and backend structure, the deployment model and the rules for agents. [`CLAUDE.md`](CLAUDE.md) imports it for Claude Code.
+- It links to modular docs: [`product-spec.md`](product-spec.md) (what to build), [`docs/testing.md`](docs/testing.md) (test suites), [`docs/versioning.md`](docs/versioning.md) (release process), [`openapi.yaml`](openapi.yaml) (API contract), and the agent/skill definitions in [`.claude/`](.claude/) (process and team).
+- When the human corrects an agent, the relevant doc is updated so the correction sticks (a rule in `AGENTS.md`).
+
+## 5. Application
+
+Frontend (React + Vite + TypeScript), backend (FastAPI) and a database (SQLAlchemy; SQLite locally, PostgreSQL in production, Alembic migrations) are connected through the HTTP API, and data persists. Run it locally with one command per process (`make run back`, `make run front`), or the whole stack with one command: `docker compose up -d --build` (http://localhost:8000). Details in [Running locally](#running-locally).
+
+## 8. Deployment
+
+Live app: **https://mongle-spoon.onrender.com/** (the UI is in Korean; reading is public, writes need the password).
+
+- It runs on Render's **free tier**, so the first request after a period of inactivity can take a while (the service has to wake up). Please wait and retry if the page does not load right away.
+- The free tier also has a **monthly limit on running hours**, so the app may be unavailable late in the month.
+- How the deployment works (Docker image on GHCR, Render, Neon PostgreSQL, dev and prod environments) is described in [Production](#production).
+
+## 9. CI/CD
+
+- **CI** ([`ci.yml`](.github/workflows/ci.yml)): on every push and pull request, backend tests on SQLite and PostgreSQL 18, and frontend test, lint and build. A separate [`compose.yml`](.github/workflows/compose.yml) smoke-tests the Docker Compose stack when image inputs change.
+- **CD to dev**: on `main`, after CI passes, the image is built once, pushed to GHCR and deployed to the Render **dev** service automatically.
+- **Production is manual**: the "Promote to prod" workflow ([`promote.yml`](.github/workflows/promote.yml)) deploys a chosen, already-tested image to the prod service.
+- **Rollback**: run "Promote to prod" again with an older tag (`sha-<commit>` or `vX.Y.Z`). Database migrations are kept compatible with the previous image. See [Production](#production) and the Deployment section of [`AGENTS.md`](AGENTS.md).
+
+## 10. Observability, 11. Alerting, 12. On-call agent
+
+These three criteria are **not implemented**. The app is a small personal tool shared with family, so there is no need for them yet. They are in the public backlog for later: [#7 basic low-cost observability](https://github.com/Karolline/mongle-spoon/issues/7) and [#8 OpenTelemetry](https://github.com/Karolline/mongle-spoon/issues/8). Today the app only has the platform logs that Render provides and CI/deployment status on GitHub.
+
+---
+
 # Mongle Spoon
 
 A small web app for saving the recipes I cook for my baby and looking them up quickly on my phone.
-
-Built as the Module 2 homework project for [AI Dev Tools Zoomcamp 2026](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp) by DataTalks.Club.
 
 ## Status
 
