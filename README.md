@@ -48,6 +48,8 @@ The project is built with [Claude Code](https://claude.com/claude-code). The tea
 | **Reviewer agent** | [`.claude/agents/reviewer.md`](.claude/agents/reviewer.md) | Read-only review of the branch against `AGENTS.md`, the spec and the brief; runs all tests (also on PostgreSQL for DB changes) and reports must-fix findings. |
 | **Release-notes skill** | [`.claude/skills/release-notes/SKILL.md`](.claude/skills/release-notes/SKILL.md) | Writes bilingual GitHub release notes, published only after the human OKs them. |
 
+**Known improvement:** the name `plan-task` only says "plan", but the skill also hands the work to the developer, runs the review, merges and releases, so the name and the role don't match. This is tracked in [issue #13](https://github.com/Karolline/mongle-spoon/issues/13) (rename the skill, or split it into plan / build / release skills).
+
 **Workflow**
 
 ```
