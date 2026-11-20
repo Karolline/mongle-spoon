@@ -1,0 +1,51 @@
+# Keeps the Render prod service awake during the day, so users don't wait for a
+# cold start (a free Render service sleeps after 15 minutes without requests).
+# Pings GET / , which serves the frontend without touching the database, so
+# Neon still sleeps when idle and its free compute hours aren't spent.
+#
+# Daytime only (06:00-22:55 KST = 21:00-13:55 UTC): Render's 750 free hours a
+# month are shared by every free service in the account (dev too), and going
+# over suspends all of them until the next month.
+#
+# GitHub may run scheduled jobs late or skip them under load, hence every 5
+# minutes (the shortest allowed) for a 15-minute sleep timer. In a public repo,
+# GitHub disables scheduled workflows after 60 days without repository
+# activity; re-enable it from the Actions tab.
+
+name: Keep prod awake
+
+on:
+  schedule:
+    - cron: "*/5 21-23 * * *"
+    - cron: "*/5 0-13 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-awake
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  PROD_URL: https://mongle-spoon.onrender.com/
+
+jobs:
+  ping:
+    name: Ping prod
+    if: github.repository == 'Karolline/mongle-spoon'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The time shows how long the request took: about a second when the
+      # service was awake, much longer when this ping woke it up.
+      - name: Ping
+        run: |
+          result=$(curl -sS -o /dev/null --max-time 180 \
+            -w '%{http_code} %{time_total}' "$PROD_URL")
+          read -r code seconds <<< "$result"
+          echo "HTTP $code in ${seconds}s"
+          echo "Prod answered HTTP $code in ${seconds}s" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" != "200" ]; then
+            echo "::error::$PROD_URL answered HTTP $code"
+            exit 1
+          fi

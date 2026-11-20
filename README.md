@@ -136,6 +136,7 @@ Two environments, running the same Docker image. They differ only in their envir
 - **CI**: GitHub Actions runs the backend tests on SQLite and PostgreSQL 18, and the frontend test/lint/build, on every push and PR. Nothing deploys unless these checks pass.
 - **Container registry**: on `main`, CI builds the Docker image once and pushes it to GHCR (`ghcr.io/karolline/mongle-spoon`, tags `sha-<commit>`, `dev`, and `vX.Y.Z` for releases), then calls the Render dev service's Deploy Hook to run it. Promoting sends that same image to prod, so prod runs exactly what was checked on dev.
 - **Database schema**: changed only through Alembic migrations. Each container applies new migrations to its own database when it starts, so a push migrates the dev database and a promotion migrates prod.
+- **Keep-awake**: a scheduled workflow pings prod every 5 minutes during the day (06:00-22:55 KST), so the free Render service doesn't sleep while it's in use. The ping doesn't touch the database.
 - **Deployments** on the GitHub repo page shows which commit each environment last received.
 - The app version at the bottom of the list screen shows which version each environment runs.
 
