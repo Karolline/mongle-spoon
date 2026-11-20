@@ -2,6 +2,10 @@
 
 Versions follow [`docs/versioning.md`](docs/versioning.md).
 
+## v1.2.2 (2026-11-20)
+
+- The app no longer makes you wait about 30 seconds for the recipe list during the day (06:00-23:00 KST). The free server slept after 15 minutes without use and took that long to wake; a scheduled ping now keeps it awake during the day. It still sleeps at night, so the first visit after midnight can be slow.
+
 ## v1.2.1 (2026-10-12)
 
 - On iPhone, tapping a text field no longer zooms the page (which stayed zoomed on the detail screen after saving): every text field now uses 16px text. Pinch zoom still works.
